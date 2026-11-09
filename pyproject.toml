@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airdeall"
+version = "0.1.0"
+description = "Streams infrastructure telemetry and operational events through Kafka into PostgreSQL and cleans them for analysis."
+
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Benjamin Munguriek Otim" }]
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka==2.16.1",
+    "psycopg[binary]==3.3.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+]
+
+[project.scripts]
+airdeall = "airdeall.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+
+# ##--- Note to future me: These lines below are Protecting me from myself --##
+
+# An older pytest still reads this table, so minversion stops it with an error
+
+# instead of letting it run without this configuration.
+
+minversion = "9.2" # hard version floor
+
+testpaths = ["tests"] # search for tests only inside tests/
+
+addopts = ["--import-mode=importlib"] # test isolation, do not permanently mutate system paths
+
+strict = true
+
+markers = [
+
+"integration: needs the Compose stack (Kafka and PostgreSQL) to be running",
+
+]
+
+ 
+
+[tool.ruff]
+
+# Any other version of ruff refuses to run, so the laptop, CI and the VM agree.
+
+required-version = "==0.17.4"
+
+ 
+
+[tool.ruff.lint]
+
+# Added to ruff's defaults: naive datetimes (DTZ) and SQL built from strings (S608).
+
+extend-select = ["DTZ", "S608"]
