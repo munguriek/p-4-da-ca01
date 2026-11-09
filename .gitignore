@@ -222,3 +222,6 @@ __marimo__/
 # Additions from me
 data/
 playground.py
+# Claude Code: personal settings and notes
+.claude/settings.local.json
+CLAUDE.local.md
