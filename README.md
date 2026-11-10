@@ -1,7 +1,7 @@
 # Airdeall 
 Programming for Data Analysis - Continuous Assessment I
 
-For this module project I will build a prototype data acquisition pipeline that streams operational data from publicly available live sources into PostgreSQL and cleans it into analysis-ready tables. Each record lands unchanged in a raw table, then moves to typed tables: deduplicated, timestamped, names against a small ontology and usernames pseudonymised. I will demonstrate continuous ingestion, report data quality per source, and answer analytical questions in SQL and Cypher, such as how service error rates respond after a change.
+For this module project I will build a prototype data acquisition pipeline that streams operational data from publicly available live sources into PostgreSQL and cleans it into analysis-ready tables. Each record lands unchanged in a raw table, then moves to typed tables: deduplicated, timestamped, standardised names against a small ontology and usernames pseudonymised. I will demonstrate continuous ingestion, report data quality per source, and answer analytical questions in SQL and Cypher or NetworkX, such as how service error rates respond after a change.
 
 ## The Streaming sources
 
