@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:29092:29092"
     environment:
-      KAFKA_NODE: 1
+      KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://pipeline-kafka:9092,EXTERNAL://localhost:29092
