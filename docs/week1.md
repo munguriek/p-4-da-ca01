@@ -15,5 +15,22 @@
 - Python ... on the laptop, in CI and on the VM (Ubuntu 26.04); `requires-python` stays `>=3.12`.
 - Repository rename to `airdeall`: ...
 
+
+## Step 2 · The pipeline stack
+
+**Work done**
+- `compose.yaml`: apache/kafka 4.4.0 (one KRaft broker) and postgres 18.6 on the `pipeline` network; project name `airdeall`; ports published on 127.0.0.1 only.
+- `.env.example` and `scripts/create_topics.sh` (safe to rerun).
+
+**Test results** (commit ..., date ...)
+- `docker compose up -d --wait`: ...
+- `./scripts/create_topics.sh`: ...
+
+**Decisions**
+- postgres 18.6 rather than the demo's 18.4, for the newest fixes.
+- Share-coordinator settings taken from Kafka's official 4.4.0 single-node example.
+- Published ports bound to 127.0.0.1.
+- Project name fixed as `airdeall`, so volume names don't depend on the folder name.
+
 **Next step**
-- Step 2: the pipeline stack.
+- Step 3: schema and migrations.
