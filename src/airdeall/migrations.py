@@ -56,3 +56,32 @@ def load_migrations(folder: Path) -> list[Migration]:
         )
     )
     return sorted(migrations, key=lambda m: m.version)
+
+def migrate(connection: psycopg.Connection, folder: Path) -> list[str]:
+    """
+    Apply each migration in folder not yet applied and return their names.
+    Open conn with autocommit=True: each transaction() block is then a real transaction,
+    so every migration is committed as soon as it succeeds.
+    """
+    with connection.transaction():
+        connection.execute(BOOTSTRAP_SQL)
+        rows = connection.execute("SELECT version, checksum FROM control.schema_migration")
+        applied = dict(rows.fetchall())
+
+    applied_now = []
+    for m in load_migrations(folder):
+        if m.version in applied:
+            if applied[m.version] != m.checksum:
+                raise EditedMigration(m.name)
+            continue
+        with connection.transaction():
+            connection.execute(m.sql)
+            connection.execute(
+                "INSERT INTO control.schema_migration (version, name, checksum)"
+                " VALUES (%s, %s, %s)",
+                (m.version, m.name, m.checksum),
+            )
+            log.info("applied %s", m.name)
+            applied_now.append(m.name)
+    log.info("%d migrations applied, %d already applied", len(applied_now), len(applied))
+    return applied_now
