@@ -1,4 +1,5 @@
-from airdeall.migrations import migrations
+from airdeall.migrations import load_migrations
+
 
 def test_migrations_are_loaded_in_order(tmp_path):
     (tmp_path / "002_b.sql").write_text("SELECT 2;\n", encoding="utf-8")
@@ -13,6 +14,7 @@ def test_migrations_are_loaded_in_order(tmp_path):
         (2, "002_b.sql"),
         (3, "003_c.sql"),
     ]
+
 
 def test_checksum_changes_when_the_file_changes(tmp_path):
     path = tmp_path / "001_a.sql"

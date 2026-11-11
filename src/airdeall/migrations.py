@@ -1,4 +1,5 @@
-"""Apply SQL migrations in order, each once. recorded in control.schema_migration."""
+"""Apply SQL migrations in order, each once, recorded in control.schema_migration."""
+
 import hashlib
 import logging
 import re
@@ -21,8 +22,10 @@ CREATE TABLE IF NOT EXISTS control.schema_migration (
 );
 """
 
+
 class MigrationError(Exception):
     """A migration can not be applied as it stands."""
+
 
 class EditedMigration(MigrationError):
     """A migration file was changed since it was applied."""
@@ -32,12 +35,14 @@ class EditedMigration(MigrationError):
             f"{name} has changed since it was applied; \n Put the change in a new migration instead"
         )
 
+
 @dataclass(frozen=True)
 class Migration:
     version: int
     name: str
     sql: str
     checksum: str
+
 
 def load_migrations(folder: Path) -> list[Migration]:
     """Read the NNN_name.sql files in folder, in order of NNN; ignore other files."""
@@ -46,26 +51,29 @@ def load_migrations(folder: Path) -> list[Migration]:
         match = MIGRATION_FILE.fullmatch(path.name)
         if match is None:
             continue
-    data = path.read_bytes()
-    migrations.append(
-        Migration(
-            version = int(match[1]),
-            name = path.name,
-            sql = data.decode("utf-8"),
-            checksum = hashlib.sha256(data).hexdigest(),
+        data = path.read_bytes()
+        migrations.append(
+            Migration(
+                version=int(match[1]),
+                name=path.name,
+                sql=data.decode("utf-8"),
+                checksum=hashlib.sha256(data).hexdigest(),
+            )
         )
-    )
     return sorted(migrations, key=lambda m: m.version)
+
 
 def migrate(connection: psycopg.Connection, folder: Path) -> list[str]:
     """
     Apply each migration in folder not yet applied and return their names.
-    Open conn with autocommit=True: each transaction() block is then a real transaction,
+    Open connection with autocommit=True: each transaction() block is then a real transaction,
     so every migration is committed as soon as it succeeds.
     """
     with connection.transaction():
         connection.execute(BOOTSTRAP_SQL)
-        rows = connection.execute("SELECT version, checksum FROM control.schema_migration")
+        rows = connection.execute(
+            "SELECT version, checksum FROM control.schema_migration"
+        )
         applied = dict(rows.fetchall())
 
     applied_now = []
@@ -81,7 +89,9 @@ def migrate(connection: psycopg.Connection, folder: Path) -> list[str]:
                 " VALUES (%s, %s, %s)",
                 (m.version, m.name, m.checksum),
             )
-            log.info("applied %s", m.name)
-            applied_now.append(m.name)
-    log.info("%d migrations applied, %d already applied", len(applied_now), len(applied))
+        log.info("applied %s", m.name)
+        applied_now.append(m.name)
+    log.info(
+        "%d migrations applied, %d already applied", len(applied_now), len(applied)
+    )
     return applied_now
