@@ -13,11 +13,11 @@ CREATE TABLE raw.otel (
     payload_bytes      integer NOT NULL, -- size of the message as received, for measuring volume
     run_id uuid        NOT NULL,
     PRIMARY KEY (topic, kpartition, koffset, kafka_timestamp)
-) PARTITION BY RANGE(kafka_timestamp);
+) PARTITION BY RANGE (kafka_timestamp);
 
 -- one row per event from producers
 CREATE TABLE raw.events (
-    source           text NOT NULL, -- gitlab.production, demo.flag-changes
+    source           text NOT NULL REFERENCES control.source_register (source_id), -- gitlab.production, demo.flag-changes
     event_id         text NOT NULL, -- issue id updated_at; flip_id
     event_type       text NOT NULL,
     event_time       timestamptz, -- when it happened at the source
