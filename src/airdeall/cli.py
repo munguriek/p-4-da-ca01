@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--folder",
         type=Path,
         default=Path("sql/migrations"),
-        help="folder of NNN_name.sql files (default: %(defaults)s)",
+        help="folder of NNN_name.sql files (default: %(default)s)",
     )
     migrate_parser.set_defaults(handler=run_migrate)
     return parser
