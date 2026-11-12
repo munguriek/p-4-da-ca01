@@ -45,7 +45,9 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
     """The libpq connection string for the pipeline database."""
     password = settings.get("POSTGRES_PASSWORD")
     if not password:
-        raise MissingSetting("POSTGRES_PASSWORD is not set: copy .env.example to .env and fill it in")
+        raise MissingSetting(
+            "POSTGRES_PASSWORD is not set: copy .env.example to .env and fill it in"
+        )
     return make_conninfo(
         host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=password
     )

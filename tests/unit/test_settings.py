@@ -24,6 +24,7 @@ def test_missing_password_is_an_error():
     with pytest.raises(MissingSetting, match="POSTGRES_PASSWORD"):
         database_connection_info({})
 
+
 def test_connection_info_points_at_the_pipeline_database():
     conninfo = database_connection_info({"POSTGRES_PASSWORD": "fake-password"})
 
