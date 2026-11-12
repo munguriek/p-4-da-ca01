@@ -28,8 +28,7 @@ CREATE TABLE control.run_log (
 );
 
 -- records that could not be stored when they are arrived
--- kept with the reason (not sure, just incase)
--- TODO:// REVISIT this or ask Paul next class
+-- kept with the reason
 CREATE TABLE control.quarantine (
     quarantine_id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     source           text NOT NULL,
