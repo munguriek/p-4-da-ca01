@@ -18,16 +18,16 @@ def run_migrate(args: argparse.Namespace) -> int:
         migrate(conn, args.folder)
     return 0
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airdeall",
-        description="Stream Infrastructure data through kafka into PostgreSQL."
+        description="Stream Infrastructure data through kafka into PostgreSQL.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
     migrate_parser = commands.add_parser(
-        "migrate",
-        help="apply new database migrations"
+        "migrate", help="apply new database migrations"
     )
     migrate_parser.add_argument(
         "--folder",
