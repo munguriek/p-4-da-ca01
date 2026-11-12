@@ -14,9 +14,11 @@ def test_env_file_lines_become_settings(tmp_path):
         "POSTGRES_PASSWORD": "fake=pw",
     }
 
+
 def test_missing_env_file_gives_no_settings(tmp_path):
     assert read_env_file(tmp_path / ".env") == {}
 
-def test_missing_password_is_an_error(tmp_path):
+
+def test_missing_password_is_an_error():
     with pytest.raises(MissingSetting, match="POSTGRES_PASSWORD"):
         database_connection_info({})
