@@ -3,7 +3,7 @@
 -- one row per source, written before the source is first ingested.
 CREATE TABLE control.source_register (
     source_id        text PRIMARY KEY, -- e.g gitlab.production
-    name             text NOT NULL, 
+    name             text NOT NULL,
     url              text NOT NULL,
     license          text NOT NULL,
     access           text NOT NULL CHECK(access IN ('stream', 'poll', 'file')),
@@ -15,7 +15,7 @@ CREATE TABLE control.source_register (
 
 -- one row per run of a job, updated with count as the run goes.
 CREATE TABLE control.run_log (
-    run_id uuid       PRIMARY KEY default uuidv7(), 
+    run_id uuid       PRIMARY KEY default uuidv7(),
     job               text NOT NULL, -- e.g. raw-sink
     started_at        timestamptz NOT NULL DEFAULT now(),
     finished_at       timestamptz,  -- NULL while the run is going
@@ -37,5 +37,5 @@ CREATE TABLE control.quarantine (
     koffset          bigint,
     reason           text NOT NULL,
     payload          bytea NOT NULL, -- preserve the bytes as received, even if not UTF-8 or JSON
-    quarantined_at   timestamptz NOT NULL default now() 
+    quarantined_at   timestamptz NOT NULL default now()
 );
