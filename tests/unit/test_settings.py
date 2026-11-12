@@ -26,10 +26,10 @@ def test_missing_password_is_an_error():
 
 def test_connection_info_points_at_the_pipeline_database():
     conninfo = database_connection_info({"POSTGRES_PASSWORD": "fake-password"})
-    
+
     assert conninfo_to_dict(conninfo) == {
         "host": "127.0.0.1",
-        "port": 5433,
+        "port": "5433",
         "dbname": "airdeall",
         "user": "pipeline",
         "password": "fake-password",

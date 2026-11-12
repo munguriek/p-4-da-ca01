@@ -47,5 +47,5 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
     if not password:
         raise MissingSetting("POSTGRES_PASSWORD is not set: copy .env.example to .env and fill it in")
     return make_conninfo(
-        host=DB_HOST, port=DB_PORT, db=DB_NAME, user=DB_USER, password=password
+        host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=password
     )
