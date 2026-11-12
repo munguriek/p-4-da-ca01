@@ -15,7 +15,7 @@ CREATE TABLE control.source_register (
 
 -- one row per run of a job, updated with count as the run goes.
 CREATE TABLE control.run_log (
-    run_id uuid       PRIMARY KEY default uuidv7(),
+    run_id uuid       PRIMARY KEY default uuidv7(), -- uuidv7 shiny 18.6 feature 
     job               text NOT NULL,
     started_at        timestamptz NOT NULL DEFAULT now(),
     finished_at       timestamptz,
@@ -25,4 +25,18 @@ CREATE TABLE control.run_log (
     rows_duplicate    bigint NOT NULL DEFAULT 0,
     rows_quarantined  bigint NOT NULL DEFAULT 0,
     note              text
+);
+
+-- records that could not be stored when they are arrived
+-- kept with the reason (not sure, just incase)
+-- TODO:// REVISIT this or ask Paul next class
+CREATE TABLE control.quarantine (
+    quarantine_id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source           text NOT NULL,
+    topic            text, -- the 3 kafka columns are NULL for file loads
+    kpartition       int,
+    koffset          bigint,
+    reason           text NOT NULL,
+    payload          bytea NOT NULL, -- preserve the bytes as received, even if not UTF-8 or JSON
+    quarantined_at   timestamptz NOT NULL default now() 
 );
