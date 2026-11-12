@@ -7,18 +7,18 @@ CREATE TABLE control.source_register (
     url              text NOT NULL,
     license          text NOT NULL,
     access           text NOT NULL CHECK(access IN ('stream', 'poll', 'file')),
-    cadence          text NOT NULL, -- once, every N minutes, continuous ...etc
-    personal_data    text NOT NULL, -- 'none' or pseudonymised
-    datasheet_path   text NOT NULL, -- documentation e.g docs/datasheets/gitlab-production.md
+    cadence          text NOT NULL, -- e.g. once, every N minutes, continuous ...etc
+    personal_data    text NOT NULL, -- 'none', or what it holds and how it is handled
+    datasheet_path   text NOT NULL, -- documentation e.g. docs/datasheets/gitlab-production.md
     registered_at    timestamptz NOT NULL default now()
 );
 
 -- one row per run of a job, updated with count as the run goes.
 CREATE TABLE control.run_log (
-    run_id uuid       PRIMARY KEY default uuidv7(), -- uuidv7 shiny 18.6 feature 
-    job               text NOT NULL,
+    run_id uuid       PRIMARY KEY default uuidv7(), 
+    job               text NOT NULL, -- e.g. raw-sink
     started_at        timestamptz NOT NULL DEFAULT now(),
-    finished_at       timestamptz,
+    finished_at       timestamptz,  -- NULL while the run is going
     status            text NOT NULL default 'running' CHECK(status IN ('running', 'finished', 'failed')),
     rows_in           bigint NOT NULL DEFAULT 0,
     rows_inserted     bigint NOT NULL DEFAULT 0,
