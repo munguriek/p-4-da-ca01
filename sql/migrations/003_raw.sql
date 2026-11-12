@@ -15,3 +15,15 @@ CREATE TABLE raw.otel (
     PRIMARY KEY (topic, kpartition, koffset, kafka_timestamp)
 ) PARTITION BY RANGE(kafka_timestamp);
 
+-- one row per event from producers
+CREATE TABLE raw.events (
+    source           text NOT NULL,
+    event_id         text NOT NULL,
+    event_type       text NOT NULL,
+    event_time       timestamptz,
+    arrived_at       timestamptz NOT NULL default now(),
+    payload          jsonb NOT NULL,
+    payload_sha256   bytea NOT NULL,
+    run_id           uuid NOT NULL,
+    PRIMARY KEY (source, event_id)
+);
