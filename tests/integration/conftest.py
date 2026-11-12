@@ -22,4 +22,6 @@ def fresh_db(pytestconfig):
             with psycopg.connect(test_conninfo, autocommit=True) as conn:
                 yield conn
         finally:
-            admin.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
+            admin.execute(
+                sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name))
+            )
