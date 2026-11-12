@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+from pathlib import Path
 
 import psycopg
 
@@ -16,3 +17,23 @@ def run_migrate(args: argparse.Namespace) -> int:
     with psycopg.connect(conninfo, autocommit=True) as conn:
         migrate(conn, args.folder)
     return 0
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airdeall",
+        description="Stream Infrastructure data through kafka into PostgreSQL."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    migrate_parser = commands.add_parser(
+        "migrate",
+        help="apply new database migrations"
+    )
+    migrate_parser.add_argument(
+        "--folder",
+        type=Path,
+        default=Path("sql/migrations"),
+        help="folder of NNN_name.sql files (default: %(defaults)s)",
+    )
+    migrate_parser.set_defaults(handler=run_migrate)
+    return parser
