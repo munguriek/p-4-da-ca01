@@ -32,5 +32,21 @@
 - Published ports bound to 127.0.0.1.
 - Project name fixed as `airdeall`, so volume names don't depend on the folder name.
 
-**Next step**
-- Step 3: schema and migrations.
+## Step 3 · Schema and migrations
+
+**Work done**
+- `sql/migrations/001_schemas.sql`, `002_control.sql` and `003_raw.sql`: five schemas; source register, run log and quarantine; `raw.otel` (daily partitions on `kafka_ts`, with `payload_bytes`) and `raw.events`.
+- `airdeall.migrations` (`load_migrations`, `migrate`), `airdeall.settings` (`.env` reader and connection string) and the `airdeall migrate` command.
+- Tests: 5 unit and 3 integration; each integration test runs in a throwaway database.
+
+**Test results** (commit ..., date ...)
+- `pytest -m "not integration"`: ...
+- `pytest -m integration`: ...
+- `airdeall migrate`: first run ...; second run ...
+
+**Decisions**
+- Quarantine payload stored as `bytea`, so records that aren't valid UTF-8 or contain NULL bytes can still be kept.
+- Kafka columns named `kpartition` and `koffset` throughout, because `offset` is reserved in SQL.
+- `run_id` defaults to `uuidv7()`, new in PostgreSQL 18.
+- Settings read from `.env` by `airdeall.settings`, with the environment taking precedence; no new dependency.
+
