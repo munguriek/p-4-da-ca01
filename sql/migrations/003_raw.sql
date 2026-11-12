@@ -22,7 +22,7 @@ CREATE TABLE raw.events (
     event_type       text NOT NULL,
     event_time       timestamptz, -- when it happened at the source
     arrived_at       timestamptz NOT NULL default now(),
-    payload          jsonb NOT NULL, -- people already psuedomised
+    payload          jsonb NOT NULL, -- people already pseudonymised
     payload_sha256   bytea NOT NULL,
     run_id           uuid NOT NULL,
     PRIMARY KEY (source, event_id)
