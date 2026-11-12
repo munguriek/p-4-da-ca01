@@ -1,6 +1,6 @@
 import pytest
 
-from airdeall.settings import EditedMigration, migrate
+from airdeall.migrations import EditedMigration, migrate
 
 pytestmark = pytest.mark.integration
 
