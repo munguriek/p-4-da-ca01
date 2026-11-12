@@ -1,11 +1,9 @@
 import uuid
 
-
 import psycopg
 import pytest
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
-
 
 from airdeall.settings import database_connection_info, load_settings
 

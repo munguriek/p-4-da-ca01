@@ -1,6 +1,5 @@
 import pytest
 
-
 from airdeall.settings import EditedMigration, migrate
 
 pytestmark = pytest.mark.integration
@@ -34,11 +33,13 @@ def test_migrate_creates_schemas_and_tables(fresh_db, migrations_folder):
     assert SCHEMAS <= schemas
     assert missing_tables == []
 
+
 def test_second_migrate_applies_nothing(fresh_db, migrations_folder):
     first = migrate(fresh_db, migrations_folder)
     second = migrate(fresh_db, migrations_folder)
     assert first == ["001_schemas.sql", "002_control.sql", "003_raw.sql"]
     assert second == []
+
 
 def test_edited_migration_is_refused(fresh_db, tmp_path):
     migration = tmp_path / "001_a.sql"
