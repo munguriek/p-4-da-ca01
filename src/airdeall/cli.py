@@ -22,7 +22,7 @@ def run_migrate(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airdeall",
-        description="Stream Infrastructure data through kafka into PostgreSQL.",
+        description="Stream infrastructure data through Kafka into PostgreSQL.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
