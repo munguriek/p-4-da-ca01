@@ -18,7 +18,7 @@ CREATE TABLE raw.otel (
 -- one row per event from producers
 CREATE TABLE raw.events (
     source           text NOT NULL REFERENCES control.source_register (source_id), -- gitlab.production, demo.flag-changes
-    event_id         text NOT NULL, -- issue id updated_at; flip_id
+    event_id         text NOT NULL, -- issue id and updated_at; flip_id
     event_type       text NOT NULL,
     event_time       timestamptz, -- when it happened at the source
     arrived_at       timestamptz NOT NULL default now(),
