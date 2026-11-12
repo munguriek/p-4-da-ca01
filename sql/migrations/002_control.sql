@@ -12,3 +12,17 @@ CREATE TABLE control.source_register (
     datasheet_path   text NOT NULL, -- documentation e.g docs/datasheets/gitlab-production.md
     registered_at    timestamptz NOT NULL default now()
 );
+
+-- one row per run of a job, updated with count as the run goes.
+CREATE TABLE control.run_log (
+    run_id uuid       PRIMARY KEY default uuidv7(),
+    job               text NOT NULL,
+    started_at        timestamptz NOT NULL DEFAULT now(),
+    finished_at       timestamptz,
+    status            text NOT NULL default 'running' CHECK(status IN ('running', 'finished', 'failed')),
+    rows_in           bigint NOT NULL DEFAULT 0,
+    rows_inserted     bigint NOT NULL DEFAULT 0,
+    rows_duplicate    bigint NOT NULL DEFAULT 0,
+    rows_quarantined  bigint NOT NULL DEFAULT 0,
+    note              text
+);
