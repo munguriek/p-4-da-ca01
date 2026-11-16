@@ -1,6 +1,7 @@
 # Changes to the OpenTelemetry Demo's services, loaded after it's own compose files
 # scripts/apply_demo_extras.sh copies this files to the demos checkout
 # Resource https://www.youtube.com/watch?v=u6VW-HqxOjg
+# AI assisted in this config generation
 services:
   otel-collector:
     networks: [default, pipeline]

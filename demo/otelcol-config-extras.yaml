@@ -1,5 +1,6 @@
 # Copies of the demo's telemetry for the airdeall pipeline, in pipelines of their own.
 # scripts/apply_demo_extras.sh copies this file to src/otel-collector/ in the demo checkout.
+# AI assisted in this config generation
 exporters:
   kafka/pipeline:
     brokers: [pipeline-kafka:9092]
