@@ -19,5 +19,5 @@ copy() {
 }
 
 copy demo/compose.extras.yaml compose.extras.yaml
-copy demo/otelcol-config-extras.yaml src/otel-collector/otelcol-config-extras.yaml
+copy demo/otelcol-config-extras.yml src/otel-collector/otelcol-config-extras.yml
 copy demo/env.override .env.override
