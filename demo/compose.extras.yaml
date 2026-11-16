@@ -1,0 +1,12 @@
+# Changes to the OpenTelemetry Demo's services, loaded after it's own compose files
+# scripts/apply_demo_extras.sh copies this files to the demos checkout
+# Resource https://www.youtube.com/watch?v=u6VW-HqxOjg
+services:
+  otel-collector:
+    networks: [default, pipeline]
+  load-generator: 
+    environment:
+      - LOCUST_BROWSER_TRAFFIC_ENABLED=false
+networks:
+  pipeline:
+    external: true
