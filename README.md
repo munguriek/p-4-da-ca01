@@ -55,8 +55,6 @@ assistance
 
 This data processing methodology follows the framework outlined in the [EDPB Guidelines 01/2025 on Pseudonymisation](https://www.edpb.europa.eu/documents/guideline/guidelines-012025-on-pseudonymisation_en).
 
-## Ethics and Data Privacy
-
 * **Sources.** The OpenTelemetry Demo's telemetry is synthetic: its load generator creates the shoppers, and the demo masks card numbers and hashes email addresses in its traces. CISA's Known Exploited Vulnerabilities catalogue, Google Cloud's incident history, the Alibaba cluster traces and the OpenTelemetry semantic conventions describe systems, not people. Issues from GitLab.com's public production tracker do name real people: authors, assignees, people who change labels, and anyone @-mentioned in titles and descriptions.
 * **Pseudonymisation at source.** Before any record reaches Kafka, the GitLab poller will replace usernames, display names and @-mentions with HMAC-SHA256 pseudonyms, and will drop profile and avatar URLs. The key is kept only in a local `.env` file, which is excluded from version control; without it, no pseudonym can be linked back to a username. Pseudonymised data is still personal data under the GDPR, so it remains protected as such.
 * **Minimisation.** The poller will keep only the issue fields the analysis needs.
