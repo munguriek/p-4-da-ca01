@@ -20,6 +20,9 @@ class FakeMessage:
     def partition(self) -> int:
         return 2
 
+    def offset(self) -> int:
+        return 41
+
     def timestamp(self) -> tuple[int, int]:
         return TIMESTAMP_CREATE_TIME, self.timestamp_ms
 
