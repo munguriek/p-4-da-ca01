@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import UUID
 
-
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 class KafkaMessage(Protocol):

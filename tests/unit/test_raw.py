@@ -1,9 +1,10 @@
-from uuid import UUID
-from dataclasses import dataclass
 import hashlib
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from confluent_kafka import TIMESTAMP_CREATE_TIME
+
 from airdeall.raw import to_raw_row
 
 # A fixed run ID for unit tests to make them deterministic
