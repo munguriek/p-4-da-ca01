@@ -1,7 +1,10 @@
 from uuid import UUID
 from dataclasses import dataclass
+import hashlib
+from datetime import UTC, datetime, timedelta
 
 from confluent_kafka import TIMESTAMP_CREATE_TIME
+from airdeall.raw import to_raw_row
 
 # A fixed run ID for unit tests to make them deterministic
 RUN_ID = UUID("00000000-0000-7000-8000-000000000001")
@@ -28,3 +31,16 @@ class FakeMessage:
 
     def value(self) -> bytes:
         return self.body
+
+def test_raw_row_maps_kafka_fields():
+    body = b'{"resourceSpans": []}'
+
+    row = to_raw_row(FakeMessage(body), RUN_ID)
+
+    assert (row.topic, row.kpartition, row.offset) == ("otel.spans", 2, 41)
+    assert row.kafka_timestamp == datetime(2026, 11, 9, 23, 59, 59, 999000, tzinfo=UTC)
+    assert row.kafka_timestamp.utcoffset() == timedelta()
+    assert row.payload == body.decode("utf-8")
+    assert row.payload_sha256 == hashlib.sha256(body).digest()
+    assert row.payload_bytes == len(body)
+    assert row.run_id == RUN_ID
