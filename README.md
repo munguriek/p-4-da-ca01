@@ -53,13 +53,10 @@ assistance
 
 ## Ethics and Data Privacy
 
-This data processing methodology follows the framework outlined in the [EDPB Guidelines 01/2025 on Pseudonymisation](https://www.edpb.europa.eu/documents/guideline/guidelines-012025-on-pseudonymisation_en).
+Only one source in this project contains personal data. Its handling follows the EDPB's [Guidelines 01/2025 on Pseudonymisation](https://www.edpb.europa.eu/our-work-tools/documents/public-consultations/2025/guidelines-012025-pseudonymisation_en).
 
 * **Sources.** The OpenTelemetry Demo's telemetry is synthetic: its load generator creates the shoppers, and the demo masks card numbers and hashes email addresses in its traces. CISA's Known Exploited Vulnerabilities catalogue, Google Cloud's incident history, the Alibaba cluster traces and the OpenTelemetry semantic conventions describe systems, not people. Issues from GitLab.com's public production tracker do name real people: authors, assignees, people who change labels, and anyone @-mentioned in titles and descriptions.
 * **Pseudonymisation at source.** Before any record reaches Kafka, the GitLab poller will replace usernames, display names and @-mentions with HMAC-SHA256 pseudonyms, and will drop profile and avatar URLs. The key is kept only in a local `.env` file, which is excluded from version control; without it, no pseudonym can be linked back to a username. Pseudonymised data is still personal data under the GDPR, so it remains protected as such.
 * **Minimisation.** The poller will keep only the issue fields the analysis needs.
 * **Where data lives.** This repository publishes no data: it holds code, documentation and small synthetic test fixtures only. Collected data stays in a local PostgreSQL database and a git-ignored `data/` folder, and the database and Kafka accept connections from the local machine only.
 * **Access and terms.** GitLab is read with a read-only (`read_api`) token, within its rate limits. Each source's licence and terms are recorded in its datasheet. The Alibaba traces are used for research and study only and are not redistributed.
-
- 
- [Guidelines 01/2025 on Pseudonymisation](https://www.edpb.europa.eu/our-work-tools/documents/public-consultations/2025/guidelines-012025-pseudonymisation_en).
