@@ -33,3 +33,18 @@ class RawRow:
     payload_sha256: bytes
     payload_bytes: int
     run_id: UUID
+
+def to_raw_row(msg: KafkaMessage, run_id: UUID) -> RawRow:
+    """The raw.otel row for one Kafka message"""
+    body = msg.value()
+    _, milliseconds = msg.timestamp()
+    return RawRow(
+        topic=msg.topic(),
+        kpartition=msg.partition(),
+        koffset=msg.offset(),
+        kafka_timestamp=EPOCH + timedelta(milliseconds=milliseconds),
+        payload=body.decode("utf-8"),
+        payload_sha256=hashlib.sha256(body).digest(),
+        payload_bytes=len(body),
+        run_id=run_id,
+    )
