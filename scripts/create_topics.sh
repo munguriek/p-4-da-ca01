@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Creates the pipeline's Kafka topics. Safe to rerun: existing topics are left as they are.
+# AI assisted in this script generation
+
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

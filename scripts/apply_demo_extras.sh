@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Copies the pipeline's changes into the demo checkout. Safe to rerun: each copy replaces the last.
+# AI assisted in this script generation
+
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
