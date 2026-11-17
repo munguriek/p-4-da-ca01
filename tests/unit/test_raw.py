@@ -18,7 +18,7 @@ class FakeMessage:
     timestamp_ms: int = LAST_MS_OF_9_NOVEMBER_UTC
 
     def topic(self) -> str:
-        return "otels.spans"
+        return "otel.spans"
 
     def partition(self) -> int:
         return 2
@@ -37,7 +37,7 @@ def test_raw_row_maps_kafka_fields():
 
     row = to_raw_row(FakeMessage(body), RUN_ID)
 
-    assert (row.topic, row.kpartition, row.offset) == ("otel.spans", 2, 41)
+    assert (row.topic, row.kpartition, row.koffset) == ("otel.spans", 2, 41)
     assert row.kafka_timestamp == datetime(2026, 11, 9, 23, 59, 59, 999000, tzinfo=UTC)
     assert row.kafka_timestamp.utcoffset() == timedelta()
     assert row.payload == body.decode("utf-8")
