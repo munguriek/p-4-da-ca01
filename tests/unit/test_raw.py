@@ -50,3 +50,7 @@ def test_raw_row_maps_kafka_fields():
 def test_non_json_payload_is_rejected():
     with pytest.raises(InvalidPayload, match='not json'):
         to_raw_row(FakeMessage(b'not json'), RUN_ID)
+
+def test_message_without_a_value_is_rejected():
+    with pytest.raises(InvalidPayload, match="not json"):
+        to_raw_row(FakeMessage(None), RUN_ID)
