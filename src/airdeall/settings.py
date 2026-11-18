@@ -51,3 +51,7 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
     return make_conninfo(
         host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=password
     )
+
+def kafka_topics(settings: Mapping[str, str]) -> list[str]:
+    """The topics the raw sink reads from KAFKA_TOPICS"""
+    return settings("KAFKA_TOPICS").split(",")

@@ -1,7 +1,7 @@
 import pytest
 from psycopg.conninfo import conninfo_to_dict
 
-from airdeall.settings import MissingSetting, database_connection_info, read_env_file
+from airdeall.settings import MissingSetting, database_connection_info, kafka_topics, read_env_file
 
 
 def test_env_file_lines_become_settings(tmp_path):
@@ -35,3 +35,8 @@ def test_connection_info_points_at_the_pipeline_database():
         "user": "pipeline",
         "password": "fake-password",
     }
+
+def test_topics_come_from_a_comma_separated_setting():
+    settings = {"KAFKA_TOPICS": "otel.spans,otel.metrics,otel.logs"}
+    
+    assert kafka_topics(settings) == ["otel.spans","otel.metrics","otel.logs"]
