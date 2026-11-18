@@ -18,7 +18,7 @@ LAST_MS_OF_9_NOVEMBER_UTC = 1794268799999
 class FakeMessage:
     """Stands in for confluent_kafka.Message, with only methods the sink reads"""
 
-    body: bytes
+    body: bytes | None
     timestamp_ms: int = LAST_MS_OF_9_NOVEMBER_UTC
 
     def topic(self) -> str:
@@ -33,7 +33,7 @@ class FakeMessage:
     def timestamp(self) -> tuple[int, int]:
         return TIMESTAMP_CREATE_TIME, self.timestamp_ms
 
-    def value(self) -> bytes:
+    def value(self) -> bytes | None:
         return self.body
 
 
@@ -44,7 +44,7 @@ def test_raw_row_maps_kafka_fields():
 
     assert (row.topic, row.kpartition, row.koffset) == ("otel.spans", 2, 41)
     assert row.kafka_timestamp == datetime(2026, 11, 9, 23, 59, 59, 999000, tzinfo=UTC)
-    assert row.kafka_timestamp.utcoffset() == timedelta()
+    assert row.kafka_timestamp.utcoffset() == timedelta(0)
     assert row.payload == body.decode("utf-8")
     assert row.payload_sha256 == hashlib.sha256(body).digest()
     assert row.payload_bytes == len(body)
@@ -54,6 +54,37 @@ def test_raw_row_maps_kafka_fields():
 def test_non_json_payload_is_rejected():
     with pytest.raises(InvalidPayload, match="not json"):
         to_raw_row(FakeMessage(b"not json"), RUN_ID)
+
+
+def test_nul_escape_is_rejected():
+    with pytest.raises(InvalidPayload, match="nul escape"):
+        to_raw_row(FakeMessage(b'{"name": "a\\u0000b"}'), RUN_ID)
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        (b"\xff\xfe", "not utf-8"),
+        (b'{"value": NaN}', "not json"),
+        (b'{"name": "\\ud800"}', "lone surrogate"),
+    ],
+    ids=["invalid-utf-8", "nan", "lone-surrogate"],
+)
+def test_payload_jsonb_cannot_store_is_rejected(body, reason):
+    with pytest.raises(InvalidPayload, match=reason):
+        to_raw_row(FakeMessage(body), RUN_ID)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"name": "a\\\\u0000b"}',  # an escaped backslash, then the text u0000
+        b'{"name": "\\ud83d\\ude00"}',  # a surrogate pair: one emoji
+    ],
+    ids=["escaped-backslash", "surrogate-pair"],
+)
+def test_escapes_jsonb_accepts_are_kept(body):
+    assert to_raw_row(FakeMessage(body), RUN_ID).payload == body.decode("utf-8")
 
 
 def test_message_without_a_value_is_rejected():

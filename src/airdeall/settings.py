@@ -67,11 +67,11 @@ def kafka_topics(settings: Mapping[str, str]) -> list[str]:
     return topics
 
 
-def sink_consumer_config() -> dict[str, str | bool]:
+def sink_consumer_config(group_id: str = SINK_GROUP_ID) -> dict[str, str | bool]:
     """Consumer settings for the raw sink offsets are committed by hand and not a timer"""
     return {
         "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
-        "group.id": SINK_GROUP_ID,
+        "group.id": group_id,
         "enable.auto.commit": False,
         "auto.offset.reset": "earliest",
     }
