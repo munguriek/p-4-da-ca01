@@ -3,8 +3,8 @@
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from datetime import UTC, datetime, time, timedelta
+from typing import NamedTuple, Protocol
 from uuid import UUID
 
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -57,6 +57,22 @@ def to_raw_row(msg: KafkaMessage, run_id: UUID) -> RawRow:
         payload_bytes=len(body),
         run_id=run_id,
     )
+
+
+class DayPartition(NamedTuple):
+    """A daily partition of raw.otel: name and UTC range it holds"""
+
+    name: str
+    start: datetime
+    end: datetime
+
+
+def day_partition(ts: datetime) -> DayPartition:
+    """The raw.otel partition that holds ts: one per UTC day, named otel_YYYYMMDD"""
+    if ts.tzinfo is None:
+        raise ValueError("the timestamp must carry a time zone")
+    start = datetime.combine(ts.astimezone(UTC).date(), time(), tzinfo=UTC)
+    return DayPartition(f"otel_{start:%Y%m%d}", start, start + timedelta(days=1))
 
 
 class InvalidPayload(Exception):

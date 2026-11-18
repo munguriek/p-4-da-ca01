@@ -1,12 +1,12 @@
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import UUID
 
 import pytest
 from confluent_kafka import TIMESTAMP_CREATE_TIME
 
-from airdeall.raw import InvalidPayload, to_raw_row
+from airdeall.raw import InvalidPayload, day_partition, to_raw_row
 
 # A fixed run ID for unit tests to make them deterministic
 RUN_ID = UUID("00000000-0000-7000-8000-000000000001")
@@ -59,3 +59,29 @@ def test_non_json_payload_is_rejected():
 def test_message_without_a_value_is_rejected():
     with pytest.raises(InvalidPayload, match="not json"):
         to_raw_row(FakeMessage(None), RUN_ID)
+
+
+def test_day_partition_bounds_are_utc():
+    last_ms = datetime(2026, 11, 9, 23, 59, 59, 999000, tzinfo=UTC)
+
+    name, start, end = day_partition(last_ms)
+
+    assert name == "otel_20261109"
+    assert start == datetime(2026, 11, 9, tzinfo=UTC)
+    assert end == datetime(2026, 11, 10, tzinfo=UTC)
+
+
+def test_day_partition_uses_the_utc_date():
+    half_past_midnight_at_utc_plus_one = datetime(
+        2026, 11, 10, 0, 30, tzinfo=timezone(timedelta(hours=1))
+    )
+
+    assert day_partition(half_past_midnight_at_utc_plus_one).name == "otel_20261109"
+
+
+def test_naive_timestamp_is_refused():
+    # A datetime without a time zone, on purpose: day_partition can't know its UTC date.
+    naive = datetime(2026, 11, 9, 12)  # noqa: DTZ001
+
+    with pytest.raises(ValueError, match="time zone"):
+        day_partition(naive)
