@@ -2,8 +2,8 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
-import pytest
 
+import pytest
 from confluent_kafka import TIMESTAMP_CREATE_TIME
 
 from airdeall.raw import InvalidPayload, to_raw_row
