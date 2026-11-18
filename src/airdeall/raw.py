@@ -1,6 +1,7 @@
 """Kafka Messages as rows for raw.otel"""
 
 import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -34,15 +35,20 @@ class RawRow:
     run_id: UUID
 
 def to_raw_row(msg: KafkaMessage, run_id: UUID) -> RawRow:
-    """The raw.otel row for one Kafka message"""
+    """The raw.otel row for one Kafka message. Raises InvalidPayload if it cannot be stored"""
     body = msg.value()
+    text = body.decode("utf-8")
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as error:
+        raise InvalidPayload("not json") from error
     _, milliseconds = msg.timestamp()
     return RawRow(
         topic=msg.topic(),
         kpartition=msg.partition(),
         koffset=msg.offset(),
         kafka_timestamp=EPOCH + timedelta(milliseconds=milliseconds),
-        payload=body.decode("utf-8"),
+        payload=text,
         payload_sha256=hashlib.sha256(body).digest(),
         payload_bytes=len(body),
         run_id=run_id,
