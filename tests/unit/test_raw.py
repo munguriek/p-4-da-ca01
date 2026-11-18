@@ -2,10 +2,11 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+import pytest
 
 from confluent_kafka import TIMESTAMP_CREATE_TIME
 
-from airdeall.raw import to_raw_row
+from airdeall.raw import InvalidPayload, to_raw_row
 
 # A fixed run ID for unit tests to make them deterministic
 RUN_ID = UUID("00000000-0000-7000-8000-000000000001")
@@ -45,3 +46,7 @@ def test_raw_row_maps_kafka_fields():
     assert row.payload_sha256 == hashlib.sha256(body).digest()
     assert row.payload_bytes == len(body)
     assert row.run_id == RUN_ID
+
+def test_non_json_payload_is_rejected():
+    with pytest.raises(InvalidPayload, match='not json'):
+        to_raw_row(FakeMessage(b'not json'), RUN_ID)

@@ -47,3 +47,6 @@ def to_raw_row(msg: KafkaMessage, run_id: UUID) -> RawRow:
         payload_bytes=len(body),
         run_id=run_id,
     )
+
+class InvalidPayload(Exception):
+    """A message that raw.otel cannot store which will go to the quarantine instead"""
