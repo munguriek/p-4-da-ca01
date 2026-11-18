@@ -54,4 +54,8 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
 
 def kafka_topics(settings: Mapping[str, str]) -> list[str]:
     """The topics the raw sink reads from KAFKA_TOPICS"""
-    return [name.strip for name in settings["KAFKA_TOPICS"].split(",")]
+    names = settings.get("KAFKA_TOPICS", "").split(",")
+    topics = [name.strip() for name in names if name.strip()]
+    if not topics:
+        raise MissingSetting("KAFKA_TOPICS is not set: list the topics to read, separated by commas")
+    return topics
