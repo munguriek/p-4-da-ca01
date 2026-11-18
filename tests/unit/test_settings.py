@@ -6,6 +6,7 @@ from airdeall.settings import (
     database_connection_info,
     kafka_topics,
     read_env_file,
+    sink_consumer_config
 )
 
 
@@ -59,3 +60,13 @@ def test_spaces_around_topic_names_are_ignored():
 def test_missing_topics_are_an_error(settings):
     with pytest.raises(MissingSetting, match="KAFKA_TOPICS"):
         kafka_topics(settings)
+
+def test_sink_commits_offsets_by_hand_and_starts_at_the_earliest():
+    config = sink_consumer_config()
+
+    assert config == {
+        "bootstrap.servers": "127.0.0.1:29092",
+        "group.id": "pg-raw-sink",
+        "enable.auto.commit": False,
+        "auto.offset.reset": "earliest",
+    }

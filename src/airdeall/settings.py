@@ -11,6 +11,9 @@ DB_HOST = "127.0.0.1"
 DB_PORT = 5433
 DB_NAME = "airdeall"
 DB_USER = "pipeline"
+# This matches the pipeline-kafka service's listener in compose.yaml.
+KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:29092"
+SINK_GROUP_ID = "pg-raw-sink"
 
 
 class MissingSetting(Exception):
@@ -59,3 +62,12 @@ def kafka_topics(settings: Mapping[str, str]) -> list[str]:
     if not topics:
         raise MissingSetting("KAFKA_TOPICS is not set: list the topics to read, separated by commas")
     return topics
+
+def sink_consumer_config() -> dict[str, str | bool]:
+    """Consumer settings for the raw sink offsets are committed by hand and not a timer"""
+    return {
+        "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
+        "group.id": SINK_GROUP_ID,
+        "enable.auto.commit": False,
+        "auto.offset.reset": "earliest",
+    }
