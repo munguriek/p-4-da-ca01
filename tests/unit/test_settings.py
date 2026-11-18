@@ -39,4 +39,4 @@ def test_connection_info_points_at_the_pipeline_database():
 def test_topics_come_from_a_comma_separated_setting():
     settings = {"KAFKA_TOPICS": "otel.spans,otel.metrics,otel.logs"}
     
-    assert kafka_topics(settings) == ["otel.spans","otel.metrics","otel.logs"]
+    assert kafka_topics(settings) == ["otel.spans", "otel.metrics", "otel.logs"]
