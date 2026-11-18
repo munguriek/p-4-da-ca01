@@ -54,4 +54,4 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
 
 def kafka_topics(settings: Mapping[str, str]) -> list[str]:
     """The topics the raw sink reads from KAFKA_TOPICS"""
-    return settings["KAFKA_TOPICS"].split(",")
+    return [name.strip for name in settings["KAFKA_TOPICS"].split(",")]

@@ -40,3 +40,8 @@ def test_topics_come_from_a_comma_separated_setting():
     settings = {"KAFKA_TOPICS": "otel.spans,otel.metrics,otel.logs"}
     
     assert kafka_topics(settings) == ["otel.spans", "otel.metrics", "otel.logs"]
+
+def test_spaces_around_topic_names_are_ignored():
+    settings = {"KAFKA_TOPICS": "otel.spans, otel.metrics ,otel.logs"}
+
+    assert kafka_topics(settings) == ["otel.spans", "otel.metrics", "otel.logs"]
