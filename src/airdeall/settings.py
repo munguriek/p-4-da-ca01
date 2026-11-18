@@ -55,13 +55,17 @@ def database_connection_info(settings: Mapping[str, str]) -> str:
         host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=password
     )
 
+
 def kafka_topics(settings: Mapping[str, str]) -> list[str]:
     """The topics the raw sink reads from KAFKA_TOPICS"""
     names = settings.get("KAFKA_TOPICS", "").split(",")
     topics = [name.strip() for name in names if name.strip()]
     if not topics:
-        raise MissingSetting("KAFKA_TOPICS is not set: list the topics to read, separated by commas")
+        raise MissingSetting(
+            "KAFKA_TOPICS is not set: list the topics to read, separated by commas"
+        )
     return topics
+
 
 def sink_consumer_config() -> dict[str, str | bool]:
     """Consumer settings for the raw sink offsets are committed by hand and not a timer"""

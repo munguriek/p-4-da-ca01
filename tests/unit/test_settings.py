@@ -6,7 +6,7 @@ from airdeall.settings import (
     database_connection_info,
     kafka_topics,
     read_env_file,
-    sink_consumer_config
+    sink_consumer_config,
 )
 
 
@@ -42,15 +42,18 @@ def test_connection_info_points_at_the_pipeline_database():
         "password": "fake-password",
     }
 
+
 def test_topics_come_from_a_comma_separated_setting():
     settings = {"KAFKA_TOPICS": "otel.spans,otel.metrics,otel.logs"}
-    
+
     assert kafka_topics(settings) == ["otel.spans", "otel.metrics", "otel.logs"]
+
 
 def test_spaces_around_topic_names_are_ignored():
     settings = {"KAFKA_TOPICS": "otel.spans, otel.metrics ,otel.logs"}
 
     assert kafka_topics(settings) == ["otel.spans", "otel.metrics", "otel.logs"]
+
 
 @pytest.mark.parametrize(
     "settings",
@@ -60,6 +63,7 @@ def test_spaces_around_topic_names_are_ignored():
 def test_missing_topics_are_an_error(settings):
     with pytest.raises(MissingSetting, match="KAFKA_TOPICS"):
         kafka_topics(settings)
+
 
 def test_sink_commits_offsets_by_hand_and_starts_at_the_earliest():
     config = sink_consumer_config()

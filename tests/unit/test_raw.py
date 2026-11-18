@@ -13,9 +13,11 @@ RUN_ID = UUID("00000000-0000-7000-8000-000000000001")
 # Boundary case 2026-11-09 23:59:59.999
 LAST_MS_OF_9_NOVEMBER_UTC = 1794268799999
 
+
 @dataclass
 class FakeMessage:
     """Stands in for confluent_kafka.Message, with only methods the sink reads"""
+
     body: bytes
     timestamp_ms: int = LAST_MS_OF_9_NOVEMBER_UTC
 
@@ -34,6 +36,7 @@ class FakeMessage:
     def value(self) -> bytes:
         return self.body
 
+
 def test_raw_row_maps_kafka_fields():
     body = b'{"resourceSpans": []}'
 
@@ -47,9 +50,11 @@ def test_raw_row_maps_kafka_fields():
     assert row.payload_bytes == len(body)
     assert row.run_id == RUN_ID
 
+
 def test_non_json_payload_is_rejected():
-    with pytest.raises(InvalidPayload, match='not json'):
-        to_raw_row(FakeMessage(b'not json'), RUN_ID)
+    with pytest.raises(InvalidPayload, match="not json"):
+        to_raw_row(FakeMessage(b"not json"), RUN_ID)
+
 
 def test_message_without_a_value_is_rejected():
     with pytest.raises(InvalidPayload, match="not json"):
