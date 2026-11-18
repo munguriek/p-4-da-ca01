@@ -36,7 +36,7 @@ class RawRow:
 
 def to_raw_row(msg: KafkaMessage, run_id: UUID) -> RawRow:
     """The raw.otel row for one Kafka message. Raises InvalidPayload if it cannot be stored"""
-    body = msg.value()
+    body = msg.value() or b""
     text = body.decode("utf-8")
     try:
         json.loads(text)
