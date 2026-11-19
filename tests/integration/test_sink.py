@@ -1,6 +1,7 @@
 import hashlib
 import json
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -102,3 +103,31 @@ def test_consumer_writes_every_message_once(migrated_db, fresh_topic, run_id):
         consumer.close()
 
     assert offsets_in_raw(migrated_db, fresh_topic) == list(range(1000))
+
+
+def test_volume_view_counts_messages_and_bytes_per_topic_and_hour(migrated_db, run_id):
+    spans = [
+        raw_row(n, datetime(2026, 11, 9, 12, m, tzinfo=UTC), run_id)
+        for n, m in ((0, 5), (1, 55))
+    ]
+    logs = [
+        replace(
+            raw_row(2, datetime(2026, 11, 9, 13, 0, tzinfo=UTC), run_id),
+            topic="otel.logs",
+        )
+    ]
+    write_batch(migrated_db, spans + logs, [], run_id)
+
+    volume = migrated_db.execute(
+        "SELECT topic, hour, messages, payload_bytes FROM control.v_raw_volume_hourly"
+        " ORDER BY topic, hour"
+    ).fetchall()
+    assert volume == [
+        ("otel.logs", datetime(2026, 11, 9, 13, tzinfo=UTC), 1, logs[0].payload_bytes),
+        (
+            "otel.spans",
+            datetime(2026, 11, 9, 12, tzinfo=UTC),
+            2,
+            sum(r.payload_bytes for r in spans),
+        ),
+    ]

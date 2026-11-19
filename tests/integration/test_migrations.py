@@ -15,6 +15,16 @@ TABLES = [
     "raw.events",
 ]
 
+SOURCES = {
+    "otel.demo",
+    "gitlab.production",
+    "cisa.kev",
+    "gcp.incidents",
+    "otel.semconv",
+    "alibaba.v2018",
+}
+
+
 
 @pytest.fixture
 def migrations_folder(pytestconfig):
@@ -37,7 +47,7 @@ def test_migrate_creates_schemas_and_tables(fresh_db, migrations_folder):
 def test_second_migrate_applies_nothing(fresh_db, migrations_folder):
     first = migrate(fresh_db, migrations_folder)
     second = migrate(fresh_db, migrations_folder)
-    assert first == ["001_schemas.sql", "002_control.sql", "003_raw.sql"]
+    assert first == sorted(path.name for path in migrations_folder.glob("*.sql"))
     assert second == []
 
 
@@ -53,3 +63,13 @@ def test_edited_migration_is_refused(fresh_db, tmp_path):
         migrate(fresh_db, tmp_path)
     applied = fresh_db.execute("SELECT name FROM control.schema_migration").fetchall()
     assert applied == [("001_a.sql",)]
+
+def test_every_source_is_registered_with_a_datasheet(migrated_db, pytestconfig):
+    rows = migrated_db.execute(
+        "SELECT source_id, datasheet_path FROM control.source_register"
+    ).fetchall()
+    missing_datasheets = [
+        path for _, path in rows if not (pytestconfig.rootpath / path).is_file()
+    ]
+    assert {source_id for source_id, _ in rows} == SOURCES
+    assert missing_datasheets == []
