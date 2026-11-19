@@ -25,7 +25,6 @@ SOURCES = {
 }
 
 
-
 @pytest.fixture
 def migrations_folder(pytestconfig):
     return pytestconfig.rootpath / "sql" / "migrations"
@@ -63,6 +62,7 @@ def test_edited_migration_is_refused(fresh_db, tmp_path):
         migrate(fresh_db, tmp_path)
     applied = fresh_db.execute("SELECT name FROM control.schema_migration").fetchall()
     assert applied == [("001_a.sql",)]
+
 
 def test_every_source_is_registered_with_a_datasheet(migrated_db, pytestconfig):
     rows = migrated_db.execute(
