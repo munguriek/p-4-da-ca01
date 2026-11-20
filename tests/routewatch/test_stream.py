@@ -1,3 +1,5 @@
+import pytest
+
 from airdeall.routewatch.stream import iter_messages
 
 
@@ -22,12 +24,14 @@ def test_yields_two_messages_from_one_chunk():
 
     assert list(iter_messages(chunks)) == [first, second]
 
+
 def test_removes_crlf_without_changing_payload_whitespace():
     payload = b'{"id":"event-1"}  '
 
     chunks = [payload + b"\r\n"]
 
     assert list(iter_messages(chunks)) == [payload]
+
 
 def test_ignores_empty_lines():
     payload = b'{"id":"event-1"}'
@@ -39,3 +43,10 @@ def test_ignores_empty_lines():
     ]
 
     assert list(iter_messages(chunks)) == [payload]
+
+
+def test_rejects_an_incomplete_message_when_stream_ends():
+    chunks = [b'{"id":"event-1"']
+
+    with pytest.raises(ValueError, match="incomplete message"):
+        list(iter_messages(chunks))

@@ -12,3 +12,5 @@ def iter_messages(chunks: Iterable[bytes]) -> Iterator[bytes]:
             message = message.removesuffix(b"\r")
             if message:
                 yield message
+    if buffer:
+        raise ValueError("Stream ended with an incomplete message")
