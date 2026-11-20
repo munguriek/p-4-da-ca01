@@ -21,3 +21,10 @@ def test_yields_two_messages_from_one_chunk():
     chunks = [first + b"\n" + second + b"\n"]
 
     assert list(iter_messages(chunks)) == [first, second]
+
+def test_removes_crlf_without_changing_payload_whitespace():
+    payload = b'{"id":"event-1"}  '
+
+    chunks = [payload + b"\r\n"]
+
+    assert list(iter_messages(chunks)) == [payload]
