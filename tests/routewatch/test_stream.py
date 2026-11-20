@@ -12,3 +12,12 @@ def test_reassembles_a_message_split_across_http_chunks():
     ]
 
     assert list(iter_messages(chunks)) == [payload]
+
+
+def test_yields_two_messages_from_one_chunk():
+    first = b'{"id":"event-1"}'
+    second = b'{"id":"event-2"}'
+
+    chunks = [first + b"\n" + second + b"\n"]
+
+    assert list(iter_messages(chunks)) == [first, second]
