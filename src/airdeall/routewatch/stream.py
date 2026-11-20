@@ -9,4 +9,6 @@ def iter_messages(chunks: Iterable[bytes]) -> Iterator[bytes]:
         buffer += chunk
         while b"\n" in buffer:
             message, buffer = buffer.split(b"\n", 1)
-            yield message.removesuffix(b"\r")
+            message = message.removesuffix(b"\r")
+            if message:
+                yield message

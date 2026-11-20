@@ -28,3 +28,14 @@ def test_removes_crlf_without_changing_payload_whitespace():
     chunks = [payload + b"\r\n"]
 
     assert list(iter_messages(chunks)) == [payload]
+
+def test_ignores_empty_lines():
+    payload = b'{"id":"event-1"}'
+
+    chunks = [
+        b"\n\r\n",
+        payload + b"\n",
+        b"\n\r\n",
+    ]
+
+    assert list(iter_messages(chunks)) == [payload]
