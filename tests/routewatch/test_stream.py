@@ -50,3 +50,31 @@ def test_rejects_an_incomplete_message_when_stream_ends():
 
     with pytest.raises(ValueError, match="incomplete message"):
         list(iter_messages(chunks))
+
+def test_rejects_a_completed_message_larger_than_the_limit():
+    chunks = [b"12345\n"]
+
+    with pytest.raises(ValueError, match="exceeds"):
+        list(iter_messages(chunks, max_message_bytes=4))
+
+
+def test_rejects_an_oversized_unfinished_message_immediately():
+    def chunks():
+        yield b"123"
+        yield b"45"
+        pytest.fail("Reader requested more data after exceeding the limit")
+
+    with pytest.raises(ValueError, match="exceeds"):
+        list(iter_messages(chunks(), max_message_bytes=4))
+
+
+def test_accepts_the_limit_with_a_split_crlf_delimiter():
+    chunks = [
+        b"1234\r",
+        b"\n12\n",
+    ]
+
+    assert list(iter_messages(chunks, max_message_bytes=4)) == [
+        b"1234",
+        b"12",
+    ]
