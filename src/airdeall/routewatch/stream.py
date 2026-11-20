@@ -2,10 +2,8 @@ from collections.abc import Iterable, Iterator
 
 
 def iter_messages(
-        chunks: Iterable[bytes],
-        *,
-        max_message_bytes: int = 8_000_000
-        ) -> Iterator[bytes]:
+    chunks: Iterable[bytes], *, max_message_bytes: int = 8_000_000
+) -> Iterator[bytes]:
     """Join incoming byte chunks into complete messages"""
     buffer = b""
 

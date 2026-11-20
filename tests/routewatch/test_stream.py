@@ -51,6 +51,7 @@ def test_rejects_an_incomplete_message_when_stream_ends():
     with pytest.raises(ValueError, match="incomplete message"):
         list(iter_messages(chunks))
 
+
 def test_rejects_a_completed_message_larger_than_the_limit():
     chunks = [b"12345\n"]
 
