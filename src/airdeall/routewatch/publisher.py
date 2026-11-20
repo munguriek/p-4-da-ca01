@@ -1,3 +1,5 @@
+from time import monotonic
+
 from confluent_kafka import KafkaError, Message, Producer
 
 from .capture import CapturedMessage
@@ -12,22 +14,40 @@ class KafkaPublisher:
         self._topic = topic
         self._delivery_error: KafkaError | None = None
 
-    def publish(self, record: CapturedMessage) -> None:
+    def publish(
+        self,
+        record: CapturedMessage,
+        *,
+        queue_timeout: float = 10.0,
+    ) -> None:
+        if queue_timeout < 0:
+            raise ValueError("queue_timeout must be zero or positive")
         self._raise_if_delivery_failed()
+        deadline = monotonic() + queue_timeout
 
-        self._producer.produce(
-            self._topic,
-            value=record.payload,
-            headers=[
-                ("routewatch_run_id", str(record.run_id).encode("ascii")),
-                (
-                    "routewatch_received_at",
-                    record.received_at.isoformat().encode("ascii"),
-                ),
-            ],
-            timestamp=int(record.received_at.timestamp() * 1000),
-            on_delivery=self._on_delivery,
-        )
+        while True:
+            try:
+                self._producer.produce(
+                    self._topic,
+                    value=record.payload,
+                    headers=[
+                        ("routewatch_run_id", str(record.run_id).encode("ascii")),
+                        (
+                            "routewatch_received_at",
+                            record.received_at.isoformat().encode("ascii"),
+                        ),
+                    ],
+                    timestamp=int(record.received_at.timestamp() * 1000),
+                    on_delivery=self._on_delivery,
+                )
+                break
+            except BufferError as error:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Kafka queue remained full") from error
+
+                self._producer.poll(min(0.1, remaining))
+                self._raise_if_delivery_failed()
 
         self._producer.poll(0)
         self._raise_if_delivery_failed()

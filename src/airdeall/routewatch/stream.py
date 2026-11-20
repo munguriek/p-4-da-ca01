@@ -1,6 +1,10 @@
 from collections.abc import Iterable, Iterator
 
 
+class IncompleteMessageError(ValueError):
+    """The source stream ended partway through a message."""
+
+
 def iter_messages(
     chunks: Iterable[bytes], *, max_message_bytes: int = 8_000_000
 ) -> Iterator[bytes]:
@@ -19,4 +23,4 @@ def iter_messages(
         if len(buffer.removesuffix(b"\r")) > max_message_bytes:
             raise ValueError("Message exceeds maximum size")
     if buffer:
-        raise ValueError("Stream ended with an incomplete message")
+        raise IncompleteMessageError("Stream ended with an incomplete message")

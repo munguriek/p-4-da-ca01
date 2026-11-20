@@ -124,3 +124,67 @@ def test_stops_publishing_after_a_delivery_failure(
         publisher.publish(record)
 
     producer.produce.assert_called_once()
+
+
+def test_retries_a_full_queue_without_changing_the_record(
+    producer: Mock,
+    record: CapturedMessage,
+) -> None:
+    producer.produce.side_effect = [BufferError("full"), None]
+    publisher = KafkaPublisher(producer, topic=TOPIC)
+
+    publisher.publish(record)
+
+    first, retry = producer.produce.call_args_list
+    assert first.args == retry.args
+    assert first.kwargs == retry.kwargs
+    assert [call.args[0] for call in producer.poll.call_args_list] == [0.1, 0]
+
+
+def test_full_queue_has_a_bounded_wait(
+    producer: Mock,
+    record: CapturedMessage,
+) -> None:
+    producer.produce.side_effect = BufferError("full")
+    publisher = KafkaPublisher(producer, topic=TOPIC)
+
+    with pytest.raises(TimeoutError, match="queue remained full"):
+        publisher.publish(record, queue_timeout=0)
+
+    producer.produce.assert_called_once()
+
+
+def test_delivery_failure_during_backpressure_stops_retries(
+    producer: Mock,
+    record: CapturedMessage,
+) -> None:
+    publisher = KafkaPublisher(producer, topic=TOPIC)
+    publisher.publish(record)
+    callback = producer.produce.call_args.kwargs["on_delivery"]
+
+    producer.produce.side_effect = BufferError("full")
+
+    def report_failure(_timeout):
+        callback(
+            KafkaError(KafkaError._MSG_TIMED_OUT),
+            Mock(spec=Message),
+        )
+
+    producer.poll.side_effect = report_failure
+
+    with pytest.raises(RuntimeError, match="Kafka delivery failed"):
+        publisher.publish(record)
+
+    assert producer.produce.call_count == 2
+
+
+def test_negative_queue_timeout_is_rejected(
+    producer: Mock,
+    record: CapturedMessage,
+) -> None:
+    publisher = KafkaPublisher(producer, topic=TOPIC)
+
+    with pytest.raises(ValueError, match="queue_timeout"):
+        publisher.publish(record, queue_timeout=-1)
+
+    producer.produce.assert_not_called()

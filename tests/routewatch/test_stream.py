@@ -1,6 +1,6 @@
 import pytest
 
-from airdeall.routewatch.stream import iter_messages
+from airdeall.routewatch.stream import IncompleteMessageError, iter_messages
 
 
 def test_reassembles_a_message_split_across_http_chunks():
@@ -79,3 +79,8 @@ def test_accepts_the_limit_with_a_split_crlf_delimiter():
         b"1234",
         b"12",
     ]
+
+
+def test_incomplete_message_raises_a_specific_error() -> None:
+    with pytest.raises(IncompleteMessageError, match="incomplete"):
+        list(iter_messages([b'{"id":']))
