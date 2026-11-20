@@ -15,3 +15,10 @@ def test_sink_is_a_command():
     args = build_parser().parse_args(["sink"])
 
     assert args.handler is run_sink
+
+
+def test_a_missing_setting_exits_with_code_2(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # no .env here, so no real setting is read
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+
+    assert main(["migrate"]) == 2

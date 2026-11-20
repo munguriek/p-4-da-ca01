@@ -15,6 +15,9 @@ requires-python = ">=3.12"
 dependencies = [
     "confluent-kafka==2.16.1",
     "psycopg[binary]==3.3.8",
+    "httpx==0.28.1",
+    "pandas==3.1.1",
+    "pandera[pandas]==0.36.0"
 ]
 
 [project.optional-dependencies]

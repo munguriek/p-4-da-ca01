@@ -18,5 +18,6 @@ create_topic otel.spans 3
 create_topic otel.metrics 3
 create_topic otel.logs 3
 create_topic demo.flag-changes 1
+create_topic gitlab.production 1
 
 kafka_topics --list --exclude-internal

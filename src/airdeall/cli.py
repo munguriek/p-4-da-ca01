@@ -86,12 +86,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         return args.handler(args)
-    except (
-        MigrationError,
-        MissingSetting,
-        OSError,
-        psycopg.Error,
-        KafkaException,
-    ) as error:
+    except MissingSetting as error:
+        log.error("%s", error)
+        return 2
+    except (MigrationError, OSError, psycopg.Error, KafkaException) as error:
         log.error("%s", error)
         return 1
