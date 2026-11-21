@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import UUID
@@ -221,3 +221,93 @@ def test_failed_flush_before_reconnecting_stops_collection(flow) -> None:
 
     flow.source.assert_called_once()
     flow.pause.assert_not_called()
+
+
+def http_error(status, headers=None):
+    request = httpx.Request("GET", "https://ris-live.ripe.net/v1/stream/")
+    response = httpx.Response(status, request=request, headers=headers)
+    return httpx.HTTPStatusError("test response", request=request, response=response)
+
+
+@pytest.mark.parametrize(
+    ("status", "headers", "delay"),
+    [
+        (408, {}, 1),
+        (429, {"Retry-After": "7"}, 7),
+        (500, {}, 1),
+        (502, {}, 1),
+        (503, {"Retry-After": "80"}, 80),
+        (504, {"Retry-After": "invalid"}, 1),
+        (429, {"Retry-After": "0"}, 1),
+    ],
+)
+def test_retries_temporary_http_responses(flow, status, headers, delay) -> None:
+    flow.source.side_effect = [
+        stream(error=http_error(status, headers), events=flow.events),
+        stream([b"one"], events=flow.events),
+    ]
+
+    assert collector.collect_messages(flow.client, flow.publisher, max_messages=1) == 1
+
+    flow.pause.assert_called_once_with(delay)
+    assert flow.events == [
+        "source_closed",
+        "flush",
+        "source_closed",
+        "flush",
+    ]
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 501, 505])
+def test_other_http_errors_stop_collection(flow, status) -> None:
+    error = http_error(status)
+    flow.source.return_value = stream(error=error, events=flow.events)
+
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        collector.collect_messages(flow.client, flow.publisher)
+
+    assert caught.value is error
+    flow.source.assert_called_once()
+    flow.pause.assert_not_called()
+    flow.publisher.publish.assert_not_called()
+    flow.publisher.flush.assert_called_once_with(timeout=35)
+    assert flow.events == ["source_closed", "flush"]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, 0),
+        ("7", 7),
+        ("0", 0),
+        ("-3", 0),
+        ("1.5", 0),
+        ("Fri, 20 Nov 2026 12:00:20 GMT", 20),
+        ("Fri, 20 Nov 2026 11:59:00 GMT", 0),
+        ("invalid", 0),
+        ("9" * 400, 0),
+    ],
+)
+def test_retry_after_parsing(value, expected) -> None:
+    response = httpx.Response(
+        429, headers={} if value is None else {"Retry-After": value}
+    )
+
+    assert (
+        collector._retry_after_seconds(
+            response,
+            now=datetime(2026, 11, 20, 12, 0, tzinfo=UTC),
+        )
+        == expected
+    )
+
+
+def test_retry_after_does_not_replace_the_backoff_state(flow) -> None:
+    flow.source.side_effect = [
+        stream(error=http_error(429, {"Retry-After": "80"})),
+        stream(),
+        stream([b"one"]),
+    ]
+
+    assert collector.collect_messages(flow.client, flow.publisher, max_messages=1) == 1
+    assert [call.args[0] for call in flow.pause.call_args_list] == [80, 2]
