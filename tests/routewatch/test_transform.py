@@ -5,39 +5,21 @@ from datetime import UTC, datetime
 import pytest
 
 from airdeall.routewatch.transform import (
+    ASPathFeatures,
+    CleanEvent,
+    CommunityFeatures,
     InvalidRISMessage,
     PrefixAction,
+    TransformResult,
     UpdateMetadata,
     decode_update,
     expand_prefix_actions,
+    normalize_as_path,
+    normalize_communities,
     normalize_metadata,
+    normalize_origin,
+    transform_message,
 )
-
-
-@pytest.fixture
-def announcement_message():
-    return {
-        "type": "ris_message",
-        "data": {
-            "id": "37.49.232.7-01a1f9c20000000e",
-            "timestamp": 1795191603.2,
-            "host": "rrc21.ripe.net",
-            "peer": "37.49.232.7",
-            "peer_asn": "8218",
-            "type": "UPDATE",
-            "med": 0,
-            "origin": "IGP",
-            "path": [8218, 37100, 327708, 37133, 36909, 36909, 36909],
-            "community": [[8218, 102], [8218, 20000], [8218, 20110]],
-            "announcements": [
-                {
-                    "next_hop": "37.49.232.7",
-                    "prefixes": ["41.220.128.0/20"],
-                }
-            ],
-            "withdrawals": [],
-        },
-    }
 
 
 def test_decodes_a_captured_update_without_changing_its_data(
@@ -380,3 +362,491 @@ def test_rejects_invalid_next_hops(announcement_message, value) -> None:
 
     with pytest.raises(InvalidRISMessage):
         expand_prefix_actions(data)
+
+
+def test_derives_features_from_the_captured_path(announcement_message) -> None:
+    data = announcement_message["data"]
+    original = deepcopy(data)
+
+    assert normalize_as_path(data) == ASPathFeatures(
+        as_path=(8218, 37100, 327708, 37133, 36909, 36909, 36909),
+        as_path_length=7,
+        unique_as_count=5,
+        prepending_count=2,
+        origin_asn=36909,
+        has_as_set=False,
+        has_private_asn=False,
+        has_nonconsecutive_repeat=False,
+    )
+    assert data == original
+
+
+def test_separated_repeats_are_not_counted_as_prepends(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["path"] = [8218, 37100, 8218]
+
+    features = normalize_as_path(data)
+
+    assert features.prepending_count == 0
+    assert features.has_nonconsecutive_repeat is True
+    assert features.unique_as_count == 2
+
+
+def test_canonicalizes_as_sets_and_keeps_sequence_runs(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["path"] = [" 8218 ", 8218, ["37100", 3356, 37100], 8218, 8218]
+
+    assert normalize_as_path(data) == ASPathFeatures(
+        as_path=(8218, 8218, (3356, 37100), 8218, 8218),
+        as_path_length=5,
+        unique_as_count=3,
+        prepending_count=2,
+        origin_asn=8218,
+        has_as_set=True,
+        has_private_asn=False,
+        has_nonconsecutive_repeat=None,
+    )
+
+
+def test_terminal_as_set_has_no_single_ordered_origin(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["path"] = [8218, [4_200_000_000, 3356]]
+
+    assert normalize_as_path(data) == ASPathFeatures(
+        as_path=(8218, (3356, 4_200_000_000)),
+        as_path_length=2,
+        unique_as_count=3,
+        prepending_count=0,
+        origin_asn=None,
+        has_as_set=True,
+        has_private_asn=True,
+        has_nonconsecutive_repeat=None,
+    )
+
+
+def test_missing_path_remains_missing(announcement_message) -> None:
+    data = announcement_message["data"]
+    data.pop("path")
+
+    assert normalize_as_path(data) is None
+
+
+def test_present_empty_path_has_zero_counts(announcement_message) -> None:
+    data = announcement_message["data"]
+    data["path"] = []
+
+    assert normalize_as_path(data) == ASPathFeatures(
+        as_path=(),
+        as_path_length=0,
+        unique_as_count=0,
+        prepending_count=0,
+        origin_asn=None,
+        has_as_set=False,
+        has_private_asn=False,
+        has_nonconsecutive_repeat=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("asn", "private"),
+    [
+        (0, False),
+        (64_511, False),
+        (64_512, True),
+        (65_534, True),
+        (65_535, False),
+        (4_199_999_999, False),
+        (4_200_000_000, True),
+        (4_294_967_294, True),
+        (4_294_967_295, False),
+    ],
+)
+def test_private_asn_boundaries(announcement_message, asn, private) -> None:
+    data = announcement_message["data"]
+    data["path"] = [asn]
+
+    features = normalize_as_path(data)
+
+    assert features.has_private_asn is private
+    assert features.origin_asn == asn
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "8218 37100",
+        8218,
+        {},
+        [True],
+        [8218.5],
+        [None],
+        [-1],
+        [2**32],
+        ["not-an-asn"],
+        [[]],
+        [[[8218]]],
+        [[3356, True]],
+        [8218, {}],
+        pytest.param(["9" * 5000], id="overlong-path-asn"),
+    ],
+)
+def test_rejects_malformed_as_paths(announcement_message, value) -> None:
+    data = announcement_message["data"]
+    data["path"] = value
+
+    with pytest.raises(InvalidRISMessage, match="path"):
+        normalize_as_path(data)
+
+
+def test_normalizes_captured_origin_and_communities(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    original = deepcopy(data)
+
+    assert normalize_origin(data) == "IGP"
+    assert normalize_communities(data) == CommunityFeatures(
+        communities=((8218, 102), (8218, 20000), (8218, 20110)),
+        community_count=3,
+        duplicate_community_count=0,
+        has_blackhole_community=False,
+    )
+    assert data == original
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("IGP", "IGP"),
+        (" igp ", "IGP"),
+        ("egp", "EGP"),
+        (" Incomplete ", "INCOMPLETE"),
+    ],
+)
+def test_normalizes_origin_categories(announcement_message, value, expected) -> None:
+    data = announcement_message["data"]
+    data["origin"] = value
+
+    assert normalize_origin(data) == expected
+
+
+def test_missing_optional_attributes_remain_missing(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data.pop("origin")
+    data.pop("community")
+
+    assert normalize_origin(data) is None
+    assert normalize_communities(data) is None
+
+
+def test_explicitly_empty_communities_have_known_zero_counts(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["community"] = []
+
+    assert normalize_communities(data) == CommunityFeatures(
+        communities=(),
+        community_count=0,
+        duplicate_community_count=0,
+        has_blackhole_community=False,
+    )
+
+
+def test_canonicalizes_communities_and_counts_removed_duplicates(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["community"] = [
+        [8218, 20110],
+        ["8218", "102"],
+        [8218, 102],
+        [65535, 666],
+        [65535, 666],
+    ]
+    original = deepcopy(data)
+
+    assert normalize_communities(data) == CommunityFeatures(
+        communities=((8218, 102), (8218, 20110), (65535, 666)),
+        community_count=3,
+        duplicate_community_count=2,
+        has_blackhole_community=True,
+    )
+    assert data == original
+
+
+@pytest.mark.parametrize(
+    ("values", "blackhole"),
+    [
+        ([[65535, 666]], True),
+        ([[65535, 667]], False),
+        ([[8218, 666]], False),
+        ([[0, 0], [65535, 65535]], False),
+    ],
+)
+def test_checks_the_exact_blackhole_community(
+    announcement_message, values, blackhole
+) -> None:
+    data = announcement_message["data"]
+    data["community"] = values
+
+    features = normalize_communities(data)
+
+    assert features is not None
+    assert features.has_blackhole_community is blackhole
+
+
+@pytest.mark.parametrize("value", [None, "", "?", 0, True, [], "IGP\x00"])
+def test_rejects_invalid_origin(announcement_message, value) -> None:
+    data = announcement_message["data"]
+    data["origin"] = value
+
+    with pytest.raises(InvalidRISMessage, match="origin"):
+        normalize_origin(data)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "8218:102",
+        {},
+        [None],
+        [[8218]],
+        [[8218, 102, 7]],
+        [[8218, -1]],
+        [[65536, 102]],
+        [[8218, 65536]],
+        [[True, 102]],
+        [[8218, 1.5]],
+        [["not-a-number", 102]],
+        [[327708, 102]],
+        pytest.param([["9" * 5000, 102]], id="overlong-community-word"),
+    ],
+)
+def test_rejects_invalid_standard_communities(announcement_message, value) -> None:
+    data = announcement_message["data"]
+    data["community"] = value
+
+    with pytest.raises(InvalidRISMessage, match="community"):
+        normalize_communities(data)
+
+
+def _encode_message(message) -> bytes:
+    return json.dumps(message).encode("utf-8")
+
+
+def test_builds_a_clean_event_from_the_capture(announcement_message) -> None:
+    result = transform_message(_encode_message(announcement_message))
+
+    assert result.status == "cleaned"
+    assert len(result.events) == 1
+    event = result.events[0]
+
+    assert isinstance(event, CleanEvent)
+    assert event.metadata.source_id == "37.49.232.7-01a1f9c20000000e"
+    assert event.metadata.peer_asn == 8218
+    assert event.action.action_index == 0
+    assert event.action.action_type == "ANNOUNCE"
+    assert event.action.prefix == "41.220.128.0/20"
+    assert event.origin == "IGP"
+    assert event.path_features is not None
+    assert event.path_features.origin_asn == 36909
+    assert event.path_features.prepending_count == 2
+    assert event.community_features is not None
+    assert event.community_features.community_count == 3
+
+
+def test_mixed_update_keeps_withdrawal_attributes_empty(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["withdrawals"] = ["41.220.128.0/20"]
+    data["announcements"][0]["prefixes"].append("41.220.144.0/20")
+
+    result = transform_message(_encode_message(announcement_message))
+
+    assert result.status == "cleaned"
+    assert [
+        (event.action.action_index, event.action.action_type, event.action.prefix)
+        for event in result.events
+    ] == [
+        (0, "WITHDRAW", "41.220.128.0/20"),
+        (1, "ANNOUNCE", "41.220.128.0/20"),
+        (2, "ANNOUNCE", "41.220.144.0/20"),
+    ]
+
+    withdrawal = result.events[0]
+    assert withdrawal.action.next_hops == ()
+    assert withdrawal.path_features is None
+    assert withdrawal.origin is None
+    assert withdrawal.community_features is None
+
+    for announcement in result.events[1:]:
+        assert announcement.action.next_hops == ("37.49.232.7",)
+        assert announcement.path_features is not None
+        assert announcement.path_features.prepending_count == 2
+        assert announcement.origin == "IGP"
+        assert announcement.community_features is not None
+        assert announcement.community_features.community_count == 3
+
+
+@pytest.mark.parametrize("attributes_present", [False, True])
+def test_withdrawals_do_not_require_announcement_attributes(
+    announcement_message, attributes_present
+) -> None:
+    data = announcement_message["data"]
+    data["announcements"] = []
+    data["withdrawals"] = ["41.220.128.0/20"]
+    for field in ("path", "origin", "community"):
+        if attributes_present:
+            data[field] = None
+        else:
+            data.pop(field)
+
+    result = transform_message(_encode_message(announcement_message))
+
+    assert result.status == "cleaned"
+    assert len(result.events) == 1
+    event = result.events[0]
+    assert event.action.action_type == "WITHDRAW"
+    assert event.path_features is None
+    assert event.origin is None
+    assert event.community_features is None
+
+
+def test_missing_announcement_attributes_remain_unknown(
+    announcement_message,
+) -> None:
+    for field in ("path", "origin", "community"):
+        announcement_message["data"].pop(field)
+
+    result = transform_message(_encode_message(announcement_message))
+
+    assert result.status == "cleaned"
+    event = result.events[0]
+    assert event.action.action_type == "ANNOUNCE"
+    assert event.path_features is None
+    assert event.origin is None
+    assert event.community_features is None
+
+
+def test_explicitly_empty_announcement_attributes_keep_zero_counts(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["path"] = []
+    data["community"] = []
+
+    result = transform_message(_encode_message(announcement_message))
+
+    event = result.events[0]
+    assert event.path_features is not None
+    assert event.path_features.as_path_length == 0
+    assert event.path_features.origin_asn is None
+    assert event.community_features is not None
+    assert event.community_features.community_count == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"type":"pong"}',
+        b'{"type":"ris_message","data":{"type":"KEEPALIVE"}}',
+    ],
+)
+def test_reports_control_messages_as_ignored(payload: bytes) -> None:
+    assert transform_message(payload) == TransformResult(status="ignored", events=())
+
+
+@pytest.mark.parametrize("fields_present", [False, True])
+def test_reports_updates_without_prefix_actions_as_empty(
+    announcement_message, fields_present
+) -> None:
+    data = announcement_message["data"]
+    for field in ("announcements", "withdrawals"):
+        if fields_present:
+            data[field] = []
+        else:
+            data.pop(field)
+
+    assert transform_message(_encode_message(announcement_message)) == (
+        TransformResult(status="empty", events=())
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("path", None), ("origin", "?"), ("community", [[65536, 1]])],
+)
+def test_rejects_bad_attributes_in_a_mixed_update(
+    announcement_message, field, value
+) -> None:
+    data = announcement_message["data"]
+    data["withdrawals"] = ["41.220.128.0/20"]
+    data[field] = value
+
+    with pytest.raises(InvalidRISMessage, match=field):
+        transform_message(_encode_message(announcement_message))
+
+
+def test_empty_updates_still_require_valid_metadata(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["announcements"] = []
+    data["withdrawals"] = []
+    data.pop("peer")
+
+    with pytest.raises(InvalidRISMessage, match="peer"):
+        transform_message(_encode_message(announcement_message))
+
+
+def test_bad_later_prefix_rejects_the_whole_transformation(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["announcements"][0]["prefixes"].append("not-a-prefix")
+
+    with pytest.raises(InvalidRISMessage, match="prefix"):
+        transform_message(_encode_message(announcement_message))
+
+
+def test_rebuild_is_deterministic_and_keeps_prefix_occurrences(
+    announcement_message,
+) -> None:
+    data = announcement_message["data"]
+    data["announcements"][0]["prefixes"] *= 2
+    payload = _encode_message(announcement_message)
+
+    first = transform_message(payload)
+    second = transform_message(payload)
+
+    assert first == second
+    assert first.status == "cleaned"
+    assert [event.action.action_index for event in first.events] == [0, 1]
+    assert [event.action.prefix for event in first.events] == [
+        "41.220.128.0/20",
+        "41.220.128.0/20",
+    ]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"{",
+        b'{"type":"ris_error","data":{"message":"bad request"}}',
+    ],
+)
+def test_transformation_propagates_invalid_payloads(payload: bytes) -> None:
+    with pytest.raises(InvalidRISMessage):
+        transform_message(payload)
