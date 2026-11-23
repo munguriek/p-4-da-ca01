@@ -43,7 +43,7 @@ docker compose -f compose.routewatch.yaml exec -T routewatch-db \
 
 ## Web UI
 
-A small read-only web UI draws the pipeline as a line, shows the raw and clean tables side by side, traces any clean row back to the raw message and Kafka offset it came from, and describes the Kafka topic and the raw consumer's progress. It uses Python's standard-library HTTP server and plain JavaScript, with no web framework.
+A small read-only web UI has two pages. **How it works** explains the pipeline in nine short animations that can be paused, rewound and replayed; its examples use addresses and AS numbers reserved for documentation. **The data** draws the pipeline as a line, shows the raw and clean tables side by side, traces any clean row back to the raw message and Kafka offset it came from, and describes the Kafka topic and the raw consumer's progress. It uses Python's standard-library HTTP server and plain JavaScript, with no web framework.
 
 ```sh
 python scripts/init_routewatch_ui_role.py   # once, and again after changing the UI password

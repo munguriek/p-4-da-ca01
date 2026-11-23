@@ -115,11 +115,11 @@ code,
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
-  padding: 28px var(--gutter) 8px;
+  padding: 24px var(--gutter) 8px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  align-items: baseline;
-  gap: 8px 24px;
+  align-items: center;
+  gap: 6px 32px;
 }
 
 .wordmark {
@@ -138,9 +138,35 @@ code,
 }
 
 .lede {
+  grid-column: 1 / -1;
   color: var(--ink-2);
   font-size: 14px;
-  max-width: 60ch;
+  max-width: 80ch;
+}
+
+.sitenav {
+  display: flex;
+  gap: 24px;
+}
+
+.sitenav a {
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 6px 0 4px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.sitenav a:hover {
+  color: var(--ink);
+}
+
+.sitenav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--route);
 }
 
 .freshness {
@@ -1033,10 +1059,15 @@ pre.payload {
 
 @media (max-width: 860px) {
   .masthead {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
+  }
+
+  .sitenav {
+    gap: 16px;
   }
 
   .freshness {
+    grid-column: 1 / -1;
     white-space: normal;
   }
 

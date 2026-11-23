@@ -1,0 +1,586 @@
+/* The explainer: a stage with an SVG scene, the narration beside it and the
+   steps as stations on a line underneath. Builds on routewatch.css. */
+
+.lesson {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 12px var(--gutter) 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "stage narration"
+    "steps narration";
+  gap: 18px 28px;
+  align-items: start;
+  flex: 1 0 auto;
+}
+
+.stage {
+  grid-area: stage;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+}
+
+.stage-frame {
+  position: relative;
+  border-radius: 6px;
+  background: #fafbfc;
+  border: 1px solid #edf0f3;
+  overflow: hidden;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--sans);
+}
+
+/* Keep runs of spaces, which line up the columns in the mono cards. */
+.scene text,
+.scene tspan {
+  white-space: pre;
+}
+
+.btn.icon svg[hidden] {
+  display: none;
+}
+
+.scene.is-entering {
+  animation: scene-in 260ms ease-out;
+}
+
+@keyframes scene-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Controls ---------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 12px;
+}
+
+.btn.icon {
+  width: 38px;
+  height: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.btn.icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.btn.icon svg .stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.scrub {
+  flex: 1 1 160px;
+  display: flex;
+  align-items: center;
+}
+
+.scrub input {
+  width: 100%;
+  accent-color: var(--route);
+  margin: 0;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink-2);
+  min-width: 82px;
+  text-align: right;
+}
+
+.speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.key {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.key li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key svg {
+  height: 14px;
+  width: auto;
+}
+
+/* --- Narration ----------------------------------------------------------- */
+
+.narration {
+  grid-area: narration;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 20px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.narration h2 {
+  font-size: 23px;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+}
+
+.step-body {
+  display: grid;
+  gap: 10px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.step-body code,
+.callout code {
+  font-size: 0.86em;
+  background: #eef2f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+
+.callout {
+  border-left: 4px solid var(--route);
+  background: var(--route-tint);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.callout.is-tradeoff {
+  border-left-color: var(--wait-fill);
+  background: var(--wait-tint);
+}
+
+.callout-label {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.callout a.btn {
+  display: inline-block;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.step-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.step-nav .btn {
+  padding: 8px 14px;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  background: var(--sheet);
+  color: var(--ink-2);
+}
+
+/* --- Steps as stations --------------------------------------------------- */
+
+.steps {
+  grid-area: steps;
+}
+
+.steps ol {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0 0;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.steps li {
+  position: relative;
+}
+
+.steps li + li::before {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: calc(-50% + 16px);
+  right: calc(50% + 16px);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+
+.steps li.is-done::before,
+.steps li.is-current::before {
+  background: var(--route);
+}
+
+.steps button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+
+.steps .num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--sheet);
+  border: 3px solid var(--rule-strong);
+  color: var(--ink-2);
+  position: relative;
+  z-index: 1;
+}
+
+.steps .is-done .num {
+  border-color: var(--route);
+  color: var(--route);
+}
+
+.steps .is-current .num {
+  background: var(--route);
+  border-color: var(--route);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--route-tint);
+}
+
+.steps .label {
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.steps .is-current .label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.steps button:hover .num {
+  border-color: var(--route);
+}
+
+/* --- Scene drawing ------------------------------------------------------- */
+
+.sc-line {
+  stroke: var(--route);
+  stroke-width: 6;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.sc-thin {
+  stroke: #c4cdd6;
+  stroke-width: 2;
+  fill: none;
+}
+
+.sc-dash {
+  stroke-dasharray: 6 6;
+}
+
+.sc-broken {
+  stroke: var(--bad);
+}
+
+.sc-station {
+  fill: #fff;
+  stroke: var(--route);
+  stroke-width: 6;
+}
+
+.sc-station.is-end {
+  fill: var(--route);
+}
+
+.sc-station.is-bad {
+  stroke: var(--bad);
+}
+
+.sc-node {
+  fill: #fff;
+  stroke: #8a98a8;
+  stroke-width: 2.5;
+}
+
+.sc-node.is-faint {
+  stroke: #c4cdd6;
+}
+
+.sc-label {
+  font-size: 18.5px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.sc-sub {
+  font-size: 15px;
+  fill: var(--ink-3);
+}
+
+.sc-note {
+  font-size: 16px;
+  fill: var(--ink-2);
+}
+
+.sc-strong {
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.sc-mono {
+  font-family: var(--mono);
+  font-size: 14.5px;
+  fill: var(--ink);
+}
+
+.scene .is-muted {
+  fill: var(--ink-3);
+}
+
+.scene .is-route {
+  fill: var(--route);
+}
+
+.scene .is-bad {
+  fill: var(--bad);
+}
+
+.scene .is-good {
+  fill: var(--good);
+}
+
+.scene .is-wait {
+  fill: var(--wait);
+}
+
+.scene .is-strong {
+  font-weight: 600;
+}
+
+.scene .sc-big {
+  font-size: 22px;
+}
+
+.scene .sc-mid {
+  font-size: 13.5px;
+}
+
+.sc-card {
+  fill: #fff;
+  stroke: #b6c0ca;
+  stroke-width: 1.2;
+}
+
+.sc-card.is-key {
+  stroke: var(--route);
+  stroke-width: 2;
+}
+
+.sc-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--ink-2);
+}
+
+.sc-cell {
+  fill: var(--route-tint);
+  stroke: var(--route);
+  stroke-width: 1.5;
+}
+
+.sc-cell.is-empty {
+  fill: #fff;
+  stroke: #c4cdd6;
+  stroke-dasharray: 4 4;
+}
+
+.sc-mark {
+  fill: var(--route-tint);
+}
+
+.sc-grid {
+  stroke: #dfe5ea;
+  stroke-width: 1;
+}
+
+.sc-head {
+  fill: #f1f4f6;
+}
+
+.sc-good {
+  fill: var(--good);
+}
+
+.sc-bad {
+  fill: var(--bad);
+}
+
+.sc-wait {
+  fill: var(--wait);
+}
+
+.sc-route {
+  fill: var(--route);
+}
+
+.sc-bar {
+  fill: var(--wait-fill);
+}
+
+.sc-bar-track {
+  fill: #eef1f4;
+}
+
+.tok-msg {
+  fill: var(--route);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.tok-ctl {
+  fill: #8a98a8;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.tok-row {
+  fill: #fff;
+  stroke: var(--route);
+  stroke-width: 2;
+}
+
+.tok-commit {
+  fill: var(--wait-fill);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.tok-bad {
+  fill: #fff;
+  stroke: var(--bad);
+  stroke-width: 2.5;
+}
+
+.tok-request {
+  fill: #fff;
+  stroke: var(--route);
+  stroke-width: 2.5;
+}
+
+.sc-chip {
+  fill: #fff;
+  stroke: var(--route);
+  stroke-width: 1.5;
+}
+
+.sc-chip.is-flag {
+  stroke: var(--bad);
+  stroke-width: 2;
+}
+
+.sc-cursor {
+  fill: none;
+  stroke: var(--wait-fill);
+  stroke-width: 4;
+}
+
+/* --- Small screens and reduced motion ------------------------------------ */
+
+@media (max-width: 1020px) {
+  .lesson {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "stage"
+      "steps"
+      "narration";
+  }
+}
+
+@media (max-width: 700px) {
+  .steps ol {
+    grid-template-columns: repeat(9, 64px);
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .time {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene.is-entering {
+    animation: none;
+  }
+}

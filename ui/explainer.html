@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>RouteWatch: how it works</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="assets/routewatch.css">
+    <link rel="stylesheet" href="assets/explainer.css">
+    <script type="module" src="assets/explainer.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#lesson">Skip to the explainer</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <svg viewBox="0 0 34 14" aria-hidden="true">
+          <line x1="5" y1="7" x2="29" y2="7" stroke="#1446c8" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="5" cy="7" r="4" fill="#fff" stroke="#1446c8" stroke-width="2"/>
+          <circle cx="17" cy="7" r="4" fill="#fff" stroke="#1446c8" stroke-width="2"/>
+          <circle cx="29" cy="7" r="4.5" fill="#1446c8"/>
+        </svg>
+        <span>RouteWatch</span>
+      </div>
+      <nav class="sitenav" aria-label="Pages">
+        <a href="explainer.html" aria-current="page">How it works</a>
+        <a href="data.html">The data</a>
+      </nav>
+      <p class="lede">Follow BGP updates from a RIPE route collector to clean rows in PostgreSQL, one step at a time. Each step is a short animation you can pause, rewind and replay.</p>
+    </header>
+
+    <main class="lesson" id="lesson">
+      <h1 class="visually-hidden">How RouteWatch works</h1>
+      <section class="stage" aria-label="Animation">
+        <div class="stage-frame">
+          <svg class="scene" id="scene" viewBox="0 0 960 540" role="img" aria-labelledby="scene-title">
+            <title id="scene-title">Animation</title>
+          </svg>
+        </div>
+
+        <div class="controls" role="group" aria-label="Animation controls">
+          <button type="button" class="btn icon" id="ctl-back" aria-label="Previous step" title="Previous step (←)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4v12M16 4l-8 6 8 6z"/></svg>
+          </button>
+          <button type="button" class="btn icon btn-primary" id="ctl-play" aria-label="Pause" title="Play or pause (Space)">
+            <svg class="icon-pause" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4h3v12H6zM11 4h3v12h-3z"/></svg>
+            <svg class="icon-play" viewBox="0 0 20 20" aria-hidden="true" hidden><path d="M6 4l10 6-10 6z"/></svg>
+          </button>
+          <button type="button" class="btn icon" id="ctl-next" aria-label="Next step" title="Next step (→)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15 4v12M4 4l8 6-8 6z"/></svg>
+          </button>
+          <button type="button" class="btn icon" id="ctl-replay" aria-label="Replay this step" title="Replay this step (R)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path class="stroke" d="M4.5 10a5.5 5.5 0 1 0 1.6-3.9"/><path d="M3.5 3.5v4.5H8z"/></svg>
+          </button>
+          <label class="scrub">
+            <span class="visually-hidden">Position in this step</span>
+            <input type="range" id="ctl-scrub" min="0" max="10000" step="10" value="0">
+          </label>
+          <output class="time" id="ctl-time" for="ctl-scrub">0:00 / 0:10</output>
+          <label class="speed">
+            <span>Speed</span>
+            <select id="ctl-speed">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+
+        <ul class="key" aria-label="What the shapes mean">
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle class="tok-msg" cx="8" cy="8" r="6"/></svg>BGP update message</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle class="tok-ctl" cx="8" cy="8" r="6"/></svg>Control message</li>
+          <li><svg viewBox="0 0 20 16" aria-hidden="true"><rect class="tok-row" x="2" y="3" width="16" height="10" rx="2"/></svg>Table row</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><path class="tok-commit" d="M8 1.5l6.5 6.5L8 14.5 1.5 8z"/></svg>Offset commit</li>
+        </ul>
+      </section>
+
+      <article class="narration">
+        <p class="step-meta"><span id="step-count">Step 1 of 9</span><span class="tag" id="step-tag">Setup</span></p>
+        <h2 id="step-title">Where the routes come from</h2>
+        <div class="step-body" id="step-body"></div>
+        <aside class="callout" id="step-callout">
+          <p class="callout-label" id="callout-label">Key idea</p>
+          <p id="callout-text"></p>
+        </aside>
+        <div class="step-nav">
+          <button type="button" class="btn" id="nav-back">Back</button>
+          <button type="button" class="btn btn-primary" id="nav-next">Next</button>
+        </div>
+        <p class="hint"><kbd>←</kbd> <kbd>→</kbd> change step, <kbd>Space</kbd> play or pause, <kbd>R</kbd> replay</p>
+      </article>
+
+      <nav class="steps" aria-label="Steps">
+        <ol id="steps"></ol>
+      </nav>
+      <p class="visually-hidden" id="announce" role="status"></p>
+    </main>
+
+    <footer class="colophon">
+      <p>Routing data: <a href="https://www.ripe.net/ris">RIPE NCC Routing Information Service (RIS)</a>, streamed through RIS Live. The worked examples use addresses and AS numbers reserved for documentation.</p>
+      <p>RouteWatch is MSc coursework: Programming for Data Analysis, continuous assessment 1, Dublin Business School.</p>
+    </footer>
+  </body>
+</html>

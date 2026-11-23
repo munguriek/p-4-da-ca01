@@ -203,7 +203,7 @@ class RouteWatchRequestHandler(SimpleHTTPRequestHandler):
             self._api(url.path, parse_qs(url.query, keep_blank_values=False))
         elif url.path == "/":
             self.send_response(HTTPStatus.FOUND)
-            self.send_header("Location", "/data.html")
+            self.send_header("Location", "/explainer.html")
             self.send_header("Content-Length", "0")
             self.end_headers()
         elif self._static_allowed(url.path):
