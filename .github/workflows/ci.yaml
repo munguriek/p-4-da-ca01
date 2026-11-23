@@ -2,10 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [develop]
   pull_request:
     branches: [main]
-    types: [closed]
   
 permissions:
   contents: read
@@ -17,7 +15,7 @@ concurrency:
 jobs:
   lint-and-unit:
     name: Lint and unit tests (Python ${{ matrix.python-version }})
-    runs-on: Ubuntu-26.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -48,9 +46,64 @@ jobs:
       - name: Check formating
         run: ruff format --check .
 
-      - name: Check airdeall command runs 
-        run: airdeall --help
-
       - name: Run unit tests 
-        if: hashFiles('tests/**/test_*.py') != '' # Skip until tests are written
         run: pytest -m "not integration"
+  
+  integration:
+    name: Integration tests (Kafka and PostgreSQL)
+    needs: lint-and-unit
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    env:
+      ROUTEWATCH_RUN_INTEGRATION: "1"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the package and development dependencies
+        run: |
+          python -m pip install pip==26.3
+          python -m pip install -e ".[dev]"
+
+      - name: Write a CI-only .env
+        run: |
+          {
+            echo "ROUTEWATCH_KAFKA_CLUSTER_ID=$(docker run --rm apache/kafka:4.4.0 /opt/kafka/bin/kafka-storage.sh random-uuid)"
+            echo "ROUTEWATCH_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:39092"
+            echo "ROUTEWATCH_KAFKA_TOPIC=routewatch.ris.raw"
+            echo "ROUTEWATCH_KAFKA_GROUP_ID=routewatch.raw.v1"
+            echo "ROUTEWATCH_POSTGRES_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
+            echo "ROUTEWATCH_POSTGRES_HOST=127.0.0.1"
+            echo "ROUTEWATCH_POSTGRES_PORT=5434"
+            echo "ROUTEWATCH_POSTGRES_DB=routewatch"
+            echo "ROUTEWATCH_POSTGRES_USER=routewatch"
+          } > .env
+
+      - name: Start Kafka and PostgreSQL
+        run: docker compose -f compose.routewatch.yaml up -d --wait
+
+      - name: Create the topic and the raw table
+        run: |
+          bash scripts/create_routewatch_topics.sh
+          python scripts/init_routewatch_db.py
+
+      - name: Run integration tests
+        run: pytest -m integration
+
+      - name: Show the service logs
+        if: failure()
+        run: docker compose -f compose.routewatch.yaml logs
+
+      - name: Remove the stack and its volumes
+        if: always()
+        run: docker compose -f compose.routewatch.yaml down -v
