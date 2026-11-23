@@ -9,16 +9,16 @@ from confluent_kafka import KafkaError, KafkaException, TopicPartition
 from confluent_kafka.admin import AdminClient, NewTopic
 from psycopg import sql
 
-from airdeall.routewatch import consumer as raw_consumer
-from airdeall.routewatch import worker
-from airdeall.routewatch.capture import capture_message
-from airdeall.routewatch.config import (
+from routewatch import consumer as raw_consumer
+from routewatch import worker
+from routewatch.capture import capture_message
+from routewatch.config import (
     load_kafka_settings,
     load_postgres_settings,
 )
-from airdeall.routewatch.db import connect_postgres
-from airdeall.routewatch.publisher import KafkaPublisher, create_producer
-from airdeall.routewatch.raw import initialize_raw_storage
+from routewatch.db import connect_postgres
+from routewatch.publisher import KafkaPublisher, create_producer
+from routewatch.raw import initialize_raw_storage
 
 pytestmark = pytest.mark.integration
 

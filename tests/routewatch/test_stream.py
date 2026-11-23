@@ -1,6 +1,6 @@
 import pytest
 
-from airdeall.routewatch.stream import IncompleteMessageError, iter_messages
+from routewatch.stream import IncompleteMessageError, iter_messages
 
 
 def test_reassembles_a_message_split_across_http_chunks():

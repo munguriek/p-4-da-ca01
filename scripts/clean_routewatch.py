@@ -5,9 +5,9 @@ from time import sleep
 
 import psycopg
 
-from airdeall.routewatch.clean_storage import initialize_clean_schema
-from airdeall.routewatch.cleaner import clean_pending_batch
-from airdeall.routewatch.config import load_kafka_settings, load_postgres_settings
+from routewatch.clean_storage import initialize_clean_schema
+from routewatch.cleaner import clean_pending_batch
+from routewatch.config import load_kafka_settings, load_postgres_settings
 
 
 def stop_cleaner(_signal, _frame) -> None:

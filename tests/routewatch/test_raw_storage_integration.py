@@ -7,10 +7,10 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from airdeall.routewatch.capture import capture_message
-from airdeall.routewatch.config import load_postgres_settings
-from airdeall.routewatch.db import connect_postgres
-from airdeall.routewatch.raw import (
+from routewatch.capture import capture_message
+from routewatch.config import load_postgres_settings
+from routewatch.db import connect_postgres
+from routewatch.raw import (
     RawRecord,
     RawReplayConflict,
     initialize_raw_storage,

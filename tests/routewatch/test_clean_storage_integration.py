@@ -9,15 +9,15 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from airdeall.routewatch.clean_storage import (
+from routewatch.clean_storage import (
     CleanReplayConflict,
     initialize_clean_schema,
     store_clean_result,
     store_rejected_message,
 )
-from airdeall.routewatch.cleaner import CleanBatchResult, clean_pending_batch
-from airdeall.routewatch.config import load_postgres_settings
-from airdeall.routewatch.transform import transform_message
+from routewatch.cleaner import CleanBatchResult, clean_pending_batch
+from routewatch.config import load_postgres_settings
+from routewatch.transform import transform_message
 
 pytestmark = [
     pytest.mark.integration,

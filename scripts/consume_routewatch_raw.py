@@ -1,12 +1,12 @@
 import argparse
 import logging
 
-from airdeall.routewatch.config import (
+from routewatch.config import (
     load_consumer_group_id,
     load_kafka_settings,
     load_postgres_settings,
 )
-from airdeall.routewatch.consumer import run_raw_worker
+from routewatch.consumer import run_raw_worker
 
 
 def main() -> None:

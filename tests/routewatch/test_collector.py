@@ -6,9 +6,9 @@ from uuid import UUID
 import httpx
 import pytest
 
-from airdeall.routewatch import collector
-from airdeall.routewatch.publisher import KafkaPublisher
-from airdeall.routewatch.stream import IncompleteMessageError
+from routewatch import collector
+from routewatch.publisher import KafkaPublisher
+from routewatch.stream import IncompleteMessageError
 
 
 def stream(payloads=(), *, error=None, events=None):

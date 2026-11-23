@@ -5,8 +5,8 @@ from uuid import UUID
 import pytest
 from confluent_kafka import KafkaError, Message, Producer
 
-from airdeall.routewatch.capture import CapturedMessage, capture_message
-from airdeall.routewatch.publisher import KafkaPublisher
+from routewatch.capture import CapturedMessage, capture_message
+from routewatch.publisher import KafkaPublisher
 
 TOPIC = "routewatch.ris.raw"
 RUN_ID = UUID(int=1)

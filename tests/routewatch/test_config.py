@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from airdeall.routewatch.config import load_kafka_settings
+from routewatch.config import load_kafka_settings
 
 BOOTSTRAP = "ROUTEWATCH_KAFKA_BOOTSTRAP_SERVERS"
 TOPIC = "ROUTEWATCH_KAFKA_TOPIC"

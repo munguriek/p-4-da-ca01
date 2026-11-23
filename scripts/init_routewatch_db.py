@@ -1,6 +1,6 @@
-from airdeall.routewatch.config import load_postgres_settings
-from airdeall.routewatch.db import connect_postgres
-from airdeall.routewatch.raw import RAW_SCHEMA, initialize_raw_storage
+from routewatch.config import load_postgres_settings
+from routewatch.db import connect_postgres
+from routewatch.raw import RAW_SCHEMA, initialize_raw_storage
 
 
 def main() -> None:

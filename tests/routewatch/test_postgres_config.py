@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from airdeall.routewatch.config import load_postgres_settings
+from routewatch.config import load_postgres_settings
 
 VALUES = {
     "ROUTEWATCH_POSTGRES_HOST": "127.0.0.1",

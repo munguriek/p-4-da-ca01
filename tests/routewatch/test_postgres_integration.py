@@ -1,7 +1,7 @@
 import pytest
 
-from airdeall.routewatch.config import load_postgres_settings
-from airdeall.routewatch.db import connect_postgres
+from routewatch.config import load_postgres_settings
+from routewatch.db import connect_postgres
 
 pytestmark = pytest.mark.integration
 

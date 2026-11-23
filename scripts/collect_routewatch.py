@@ -6,9 +6,9 @@ from time import gmtime
 
 import httpx
 
-from airdeall.routewatch.collector import collect_messages
-from airdeall.routewatch.config import load_kafka_settings
-from airdeall.routewatch.publisher import KafkaPublisher, create_producer
+from routewatch.collector import collect_messages
+from routewatch.config import load_kafka_settings
+from routewatch.publisher import KafkaPublisher, create_producer
 
 logger = logging.getLogger(__name__)
 

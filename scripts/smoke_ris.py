@@ -4,10 +4,10 @@ from uuid import uuid4
 
 import httpx
 
-from airdeall.routewatch.capture import capture_message
-from airdeall.routewatch.config import load_kafka_settings
-from airdeall.routewatch.publisher import KafkaPublisher, create_producer
-from airdeall.routewatch.source import iter_ris_messages
+from routewatch.capture import capture_message
+from routewatch.config import load_kafka_settings
+from routewatch.publisher import KafkaPublisher, create_producer
+from routewatch.source import iter_ris_messages
 
 
 def main() -> None:

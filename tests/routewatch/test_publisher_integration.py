@@ -7,9 +7,9 @@ import pytest
 from confluent_kafka import TIMESTAMP_CREATE_TIME, Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient, NewTopic
 
-from airdeall.routewatch.capture import capture_message
-from airdeall.routewatch.config import KafkaSettings, load_kafka_settings
-from airdeall.routewatch.publisher import KafkaPublisher, create_producer
+from routewatch.capture import capture_message
+from routewatch.config import KafkaSettings, load_kafka_settings
+from routewatch.publisher import KafkaPublisher, create_producer
 
 pytestmark = pytest.mark.integration
 

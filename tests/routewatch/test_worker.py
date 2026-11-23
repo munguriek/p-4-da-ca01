@@ -8,9 +8,9 @@ import psycopg
 import pytest
 from confluent_kafka import Consumer, KafkaError, KafkaException
 
-from airdeall.routewatch import worker
-from airdeall.routewatch.capture import capture_message
-from airdeall.routewatch.raw import RawRecord
+from routewatch import worker
+from routewatch.capture import capture_message
+from routewatch.raw import RawRecord
 
 
 @pytest.fixture

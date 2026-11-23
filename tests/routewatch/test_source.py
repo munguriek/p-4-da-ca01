@@ -4,7 +4,7 @@ from contextlib import closing
 import httpx
 import pytest
 
-from airdeall.routewatch.source import iter_ris_messages
+from routewatch.source import iter_ris_messages
 
 
 def test_streams_original_bytes_using_the_selected_collector():

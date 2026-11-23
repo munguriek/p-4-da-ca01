@@ -3,7 +3,7 @@ from uuid import UUID
 
 import pytest
 
-from airdeall.routewatch.capture import capture_message
+from routewatch.capture import capture_message
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 import pytest
 from confluent_kafka.admin import AdminClient, ConfigResource, ResourceType
 
-from airdeall.routewatch.config import load_kafka_settings
+from routewatch.config import load_kafka_settings
 
 pytestmark = pytest.mark.integration
 
