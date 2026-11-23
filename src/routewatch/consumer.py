@@ -23,7 +23,7 @@ def create_consumer(settings: KafkaSettings, *, group_id: str) -> Consumer:
     return Consumer(
         {
             "bootstrap.servers": settings.bootstrap_servers,
-            "client.id": "airdeall-routewatch-raw",
+            "client.id": "routewatch-raw",
             "group.id": group_id,
             "enable.auto.commit": False,
             "enable.auto.offset.store": False,

@@ -5,7 +5,7 @@ import httpx
 
 from .stream import iter_messages
 
-RIS_URL = "https://ris-live.ripe.net/v1/stream/?format=json&client=airdeall-routewatch"
+RIS_URL = "https://ris-live.ripe.net/v1/stream/?format=json&client=routewatch"
 
 
 def iter_ris_messages(
@@ -15,7 +15,7 @@ def iter_ris_messages(
 ) -> Iterator[bytes]:
     """Join original message payloads from RIS Live."""
     headers = {
-        "User-Agent": "AirdeallRouteWatch/0.1",
+        "User-Agent": "RouteWatch/0.1",
         "X-RIS-Subscribe": json.dumps(
             {
                 "host": collector,

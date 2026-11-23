@@ -12,6 +12,6 @@ def connect_postgres(settings: PostgresSettings) -> psycopg.Connection:
         user=settings.user,
         password=settings.password,
         connect_timeout=5,
-        application_name="airdeall-routewatch",
+        application_name="routewatch",
         autocommit=True,
     )

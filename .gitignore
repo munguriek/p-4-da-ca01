@@ -229,3 +229,4 @@ writeups/
 
 practice.ipynb
 logs/
+.DS_Store

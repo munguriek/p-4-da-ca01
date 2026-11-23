@@ -79,7 +79,7 @@ def create_producer(settings: KafkaSettings) -> Producer:
     return Producer(
         {
             "bootstrap.servers": settings.bootstrap_servers,
-            "client.id": "airdeall-routewatch",
+            "client.id": "routewatch",
             "enable.idempotence": True,
             "acks": "all",
             "message.max.bytes": 8_388_608,

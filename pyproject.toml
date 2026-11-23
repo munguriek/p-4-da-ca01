@@ -3,9 +3,9 @@ requires = ["setuptools==84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "airdeall"
+name = "routewatch"
 version = "0.1.0"
-description = "Streams infrastructure telemetry and operational events through Kafka into PostgreSQL and cleans them for analysis."
+description = "Streams live BGP updates from RIPE RIS Live through Kafka into PostgreSQL and cleans them for analysis."
 
 readme = "README.md"
 license = "MIT"
@@ -27,8 +27,6 @@ dev = [
     "ruff==0.17.4",
 ]
 
-[project.scripts]
-airdeall = "airdeall.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -24,7 +24,7 @@ create_topic() {
 }
 
 routewatch_topic="$(python -c '
-from airdeall.routewatch.config import load_kafka_settings
+from routewatch.config import load_kafka_settings
 print(load_kafka_settings().topic)
 ')"
 
