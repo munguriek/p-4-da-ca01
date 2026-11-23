@@ -1,6 +1,6 @@
 # RouteWatch
 
-Programming for Data Analysis (B9AI001), continuous assessment, Dublin Business School.
+Programming for Data Analysis, continuous assessment 1, Dublin Business School.
 
 RouteWatch streams live BGP update messages from [RIPE RIS Live](https://ris-live.ripe.net/) through Kafka into PostgreSQL. Every message is kept unchanged in a raw table, then cleaned into typed rows: one for each prefix a message announces or withdraws.
 
@@ -25,7 +25,7 @@ You need Docker with Compose, and Python 3.12 or later.
 ```sh
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env    # then fill in the two values it leaves blank
+cp .env.example .env    # then fill in the three values it leaves blank
 docker compose -f compose.routewatch.yaml up -d --wait
 bash scripts/create_routewatch_topics.sh
 python scripts/init_routewatch_db.py
@@ -41,6 +41,17 @@ docker compose -f compose.routewatch.yaml exec -T routewatch-db \
   psql -U routewatch -d routewatch < scripts/audit_routewatch_clean.sql
 ```
 
+## Web UI
+
+A small read-only web UI draws the pipeline as a line, shows the raw and clean tables side by side, traces any clean row back to the raw message and Kafka offset it came from, and describes the Kafka topic and the raw consumer's progress. It uses Python's standard-library HTTP server and plain JavaScript, with no web framework.
+
+```sh
+python scripts/init_routewatch_ui_role.py   # once, and again after changing the UI password
+python scripts/serve_routewatch_ui.py       # then open http://127.0.0.1:8765/
+```
+
+The UI connects to PostgreSQL as its own role, which can only read, and it listens on 127.0.0.1. On a server, reach it through an SSH tunnel rather than opening the port.
+
 ## Tests
 
 ```sh
@@ -50,4 +61,4 @@ ROUTEWATCH_RUN_INTEGRATION=1 pytest -m integration   # needs the stack, the topi
 
 ## Data
 
-RIS Live is a public service of the RIPE NCC. The collector names itself in the stream URL (`client=routewatch`). BGP updates describe networks and routes, not people. Collected data stays out of Git: the repository holds code, documentation and small synthetic test fixtures.
+RIS Live is a public service of the RIPE NCC: the routing data comes from the [RIPE NCC Routing Information Service (RIS)](https://www.ripe.net/ris), which the UI credits on every page. The collector names itself in the stream URL (`client=routewatch`). BGP updates describe networks and routes, not people. Collected data stays out of Git: the repository holds code, documentation and small synthetic test fixtures.
