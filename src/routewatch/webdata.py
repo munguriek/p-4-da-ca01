@@ -628,6 +628,61 @@ def fetch_clean_page(
 
 STATUSES = ("cleaned", "empty", "ignored", "rejected")
 
+# Counting takes seconds once a table holds millions of rows, and the UI's
+# role stops any statement after five. Past this many rows, by the planner's
+# estimate, the summary reports estimates instead of counts.
+EXACT_COUNT_LIMIT = 1_000_000
+
+PROCESSING_ORDER = (
+    "p.kafka_cluster_id",
+    "p.topic",
+    "p.kafka_partition",
+    "p.kafka_offset",
+    "p.transform_version",
+)
+
+
+def _estimated_rows(
+    connection: psycopg.Connection,
+    table: sql.Composable,
+    condition: str,
+    params: tuple[Any, ...],
+) -> int:
+    """The planner's estimate of the rows that match a condition.
+
+    It costs one plan whatever the table's size, and it follows growth
+    between ANALYZE runs, because the planner scales the table's statistics
+    to its current size.
+    """
+    with connection.cursor() as cur:
+        plan = cur.execute(
+            sql.SQL("EXPLAIN (FORMAT JSON) SELECT 1 FROM {} WHERE {}").format(
+                table, sql.SQL(condition)
+            ),
+            params,
+        ).fetchone()[0]
+    return int(plan[0]["Plan"]["Plan Rows"])
+
+
+def _offset_gap(
+    latest_raw: dict[str, Any] | None, latest_receipt: dict[str, Any] | None
+) -> int | None:
+    """Messages stored but not yet processed, from the newest offset of each.
+
+    Exact within one partition, where offsets have no gaps; None when the two
+    newest rows come from different partitions or clusters.
+    """
+    if latest_raw is None:
+        return 0
+    if latest_receipt is None:
+        return None
+    same_partition = all(
+        latest_raw[key] == latest_receipt[key]
+        for key in ("kafka_cluster_id", "kafka_partition")
+    )
+    gap = latest_raw["kafka_offset"] - latest_receipt["kafka_offset"]
+    return gap if same_partition and gap >= 0 else None
+
 
 def fetch_summary(
     connection: psycopg.Connection,
@@ -635,19 +690,31 @@ def fetch_summary(
     topic: str,
     transform_version: int,
 ) -> dict[str, Any]:
-    """Counts for the pipeline line at the top of the data page."""
-    with connection.cursor(row_factory=dict_row) as cur:
-        raw_count = cur.execute(
-            sql.SQL("SELECT count(*) AS n FROM {} WHERE topic = %s").format(
-                RAW_MESSAGES
-            ),
-            (topic,),
-        ).fetchone()["n"]
+    """Counts for the pipeline line at the top of the data page.
 
+    Tables up to EXACT_COUNT_LIMIT rows are counted exactly. Past that, every
+    count is the planner's estimate and "approximate" is true; the backlog
+    comes from the newest raw and processed offsets, and the check that the
+    receipts promise as many rows as the clean table holds is skipped
+    ("receipts_match_rows" is None).
+    """
+    clean_rows = "topic = %s AND transform_version = %s"
+    estimates = {
+        "raw": _estimated_rows(connection, RAW_MESSAGES, "topic = %s", (topic,)),
+        "receipts": _estimated_rows(
+            connection, PROCESSING, clean_rows, (topic, transform_version)
+        ),
+        "events": _estimated_rows(
+            connection, PREFIX_EVENTS, clean_rows, (topic, transform_version)
+        ),
+    }
+
+    with connection.cursor(row_factory=dict_row) as cur:
         latest_raw = cur.execute(
             sql.SQL(
                 """
-                SELECT r.kafka_offset, r.received_at, r.stored_at
+                SELECT r.kafka_cluster_id, r.kafka_partition, r.kafka_offset,
+                       r.received_at, r.stored_at
                 FROM {raw} AS r
                 WHERE r.topic = %s
                 ORDER BY {order}
@@ -656,6 +723,69 @@ def fetch_summary(
             ).format(raw=RAW_MESSAGES, order=_order_by(RAW_ORDER, "DESC")),
             (topic,),
         ).fetchone()
+
+        latest_event = cur.execute(
+            sql.SQL(
+                """
+                SELECT e.event_ts, e.collector_host
+                FROM {events} AS e
+                WHERE e.topic = %s AND e.transform_version = %s
+                ORDER BY {order}
+                LIMIT 1
+                """
+            ).format(events=PREFIX_EVENTS, order=_order_by(CLEAN_ORDER, "DESC")),
+            (topic, transform_version),
+        ).fetchone()
+
+        if max(estimates.values()) > EXACT_COUNT_LIMIT:
+            latest_receipt = cur.execute(
+                sql.SQL(
+                    """
+                    SELECT p.kafka_cluster_id, p.kafka_partition, p.kafka_offset
+                    FROM {processing} AS p
+                    WHERE p.topic = %s AND p.transform_version = %s
+                    ORDER BY {order}
+                    LIMIT 1
+                    """
+                ).format(
+                    processing=PROCESSING, order=_order_by(PROCESSING_ORDER, "DESC")
+                ),
+                (topic, transform_version),
+            ).fetchone()
+            by_status = {
+                status: {
+                    "messages": _estimated_rows(
+                        connection,
+                        PROCESSING,
+                        f"{clean_rows} AND status = %s",
+                        (topic, transform_version, status),
+                    ),
+                    # Only cleaned messages give rows.
+                    "events": estimates["events"] if status == "cleaned" else 0,
+                }
+                for status in STATUSES
+            }
+            return {
+                "topic": topic,
+                "transform_version": transform_version,
+                "approximate": True,
+                "raw": {"messages": estimates["raw"], "latest": latest_raw},
+                "processing": {
+                    "receipts": estimates["receipts"],
+                    "pending": _offset_gap(latest_raw, latest_receipt),
+                    "by_status": by_status,
+                    "promised_events": None,
+                },
+                "clean": {"events": estimates["events"], "latest": latest_event},
+                "receipts_match_rows": None,
+            }
+
+        raw_count = cur.execute(
+            sql.SQL("SELECT count(*) AS n FROM {} WHERE topic = %s").format(
+                RAW_MESSAGES
+            ),
+            (topic,),
+        ).fetchone()["n"]
 
         by_status = {status: {"messages": 0, "events": 0} for status in STATUSES}
         for row in cur.execute(
@@ -685,24 +815,12 @@ def fetch_summary(
             (topic, transform_version),
         ).fetchone()["n"]
 
-        latest_event = cur.execute(
-            sql.SQL(
-                """
-                SELECT e.event_ts, e.collector_host
-                FROM {events} AS e
-                WHERE e.topic = %s AND e.transform_version = %s
-                ORDER BY {order}
-                LIMIT 1
-                """
-            ).format(events=PREFIX_EVENTS, order=_order_by(CLEAN_ORDER, "DESC")),
-            (topic, transform_version),
-        ).fetchone()
-
     receipts = sum(part["messages"] for part in by_status.values())
     promised = sum(part["events"] for part in by_status.values())
     return {
         "topic": topic,
         "transform_version": transform_version,
+        "approximate": False,
         "raw": {"messages": raw_count, "latest": latest_raw},
         "processing": {
             "receipts": receipts,

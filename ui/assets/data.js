@@ -4,6 +4,8 @@
 // never as HTML.
 
 const NUMBER = new Intl.NumberFormat("en-GB");
+// Large tables are summarised from PostgreSQL's estimates: shown as, say, "≈12.3M".
+const COMPACT = new Intl.NumberFormat("en-GB", { notation: "compact", maximumSignificantDigits: 3 });
 const FOLLOW_MS = 5000;
 const STALE_SECONDS = 300;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -74,6 +76,10 @@ const $ = (id) => document.getElementById(id);
 const fmt = {
   int(value) {
     return value === null || value === undefined ? "–" : NUMBER.format(value);
+  },
+  count(value, approximate) {
+    if (value === null || value === undefined) return "–";
+    return approximate ? `≈${COMPACT.format(value)}` : NUMBER.format(value);
   },
   asn(value) {
     return value === null || value === undefined ? "–" : String(value);
@@ -287,28 +293,33 @@ function renderLine() {
   } else {
     const lag = topic && topic.group_lag ? topic.group_lag : 0;
     const pending = summary ? summary.processing.pending : 0;
+    const approximate = Boolean(summary && summary.approximate);
+    let cleanDetail = "prefix rows";
+    if (summary && approximate) {
+      cleanDetail = "prefix rows; counts are PostgreSQL's estimates";
+    } else if (summary) {
+      cleanDetail = summary.receipts_match_rows
+        ? "prefix rows; receipts and rows agree"
+        : `prefix rows; receipts promise ${fmt.int(summary.processing.promised_events)}`;
+    }
     stations.push(
       station({
         name: "Raw table",
-        count: summary ? fmt.int(summary.raw.messages) : "…",
+        count: summary ? fmt.count(summary.raw.messages, approximate) : "…",
         detail: "messages stored as received",
         backlog: lag ? `${fmt.int(lag)} waiting in Kafka` : null,
       }),
       station({
         name: "Cleaner",
-        count: summary ? fmt.int(summary.processing.receipts) : "…",
+        count: summary ? fmt.count(summary.processing.receipts, approximate) : "…",
         detail: "messages given an outcome",
         backlog: pending ? `${fmt.int(pending)} waiting to be cleaned` : null,
       }),
       station({
         name: "Clean table",
-        count: summary ? fmt.int(summary.clean.events) : "…",
-        detail: summary
-          ? summary.receipts_match_rows
-            ? "prefix rows; receipts and rows agree"
-            : `prefix rows; receipts promise ${fmt.int(summary.processing.promised_events)}`
-          : "prefix rows",
-        detailTone: summary && !summary.receipts_match_rows ? "bad" : null,
+        count: summary ? fmt.count(summary.clean.events, approximate) : "…",
+        detail: cleanDetail,
+        detailTone: summary && !approximate && !summary.receipts_match_rows ? "bad" : null,
       }),
     );
   }
@@ -316,8 +327,9 @@ function renderLine() {
   renderOutcomes();
   renderFreshness();
 
-  $("count-raw").textContent = summary ? fmt.int(summary.raw.messages) : "";
-  $("count-clean").textContent = summary ? fmt.int(summary.clean.events) : "";
+  const approximate = Boolean(summary && summary.approximate);
+  $("count-raw").textContent = summary ? fmt.count(summary.raw.messages, approximate) : "";
+  $("count-clean").textContent = summary ? fmt.count(summary.clean.events, approximate) : "";
   $("count-kafka").textContent = state.kafka ? fmt.int(state.kafka.topics.length) : "";
 }
 
@@ -329,6 +341,7 @@ function renderOutcomes() {
     return;
   }
   const total = summary.processing.receipts;
+  const approximate = Boolean(summary.approximate);
   const parts = Object.keys(OUTCOMES).map((status) => ({ status, ...summary.processing.by_status[status] }));
   const bar = h("div", { class: "split", "aria-hidden": "true" });
   for (const part of parts) {
@@ -347,13 +360,17 @@ function renderOutcomes() {
         { class: `tone-${part.status}`, title: OUTCOMES[part.status].hint },
         h("span", { class: "swatch", "aria-hidden": "true" }),
         `${OUTCOMES[part.status].label} `,
-        h("strong", {}, fmt.int(part.messages)),
-        part.status === "cleaned" ? ` (${fmt.int(part.events)} rows)` : null,
+        h("strong", {}, fmt.count(part.messages, approximate)),
+        part.status === "cleaned" ? ` (${fmt.count(part.events, approximate)} rows)` : null,
       ),
     ),
   );
   box.replaceChildren(
-    h("p", { class: "outcomes-title" }, `Outcomes of the ${fmt.int(total)} messages the cleaner has processed`),
+    h(
+      "p",
+      { class: "outcomes-title" },
+      `Outcomes of the ${fmt.count(total, approximate)} messages the cleaner has processed`,
+    ),
     bar,
     legend,
   );
