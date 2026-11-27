@@ -127,10 +127,18 @@ services:
       routewatch-migrate:
         condition: service_completed_successfully
 
-  # Published on the host's loopback only: reach it through an SSH tunnel.
+  # Published on the host's loopback only: reach it through an SSH tunnel, or
+  # through routewatch-tunnel at ROUTEWATCH_UI_PUBLIC_HOST.
   routewatch-ui:
     <<: *app
-    command: [python, scripts/serve_routewatch_ui.py, --host, 0.0.0.0, --allow-non-loopback]
+    command:
+      - python
+      - scripts/serve_routewatch_ui.py
+      - --host
+      - 0.0.0.0
+      - --allow-non-loopback
+      - --allowed-host
+      - ${ROUTEWATCH_UI_PUBLIC_HOST:-localhost:8765}
     ports: ["127.0.0.1:8765:8765"]
     environment:
       <<: [*kafka-env, *postgres-env]
@@ -153,3 +161,23 @@ services:
     depends_on:
       routewatch-migrate:
         condition: service_completed_successfully
+
+  # Optional: serves the UI at a hostname set up in Cloudflare, through an
+  # outbound tunnel, so no port opens on the VM; Cloudflare Access decides who
+  # gets through. It runs only under the "tunnel" profile, which release.sh
+  # turns on when .env holds ROUTEWATCH_TUNNEL_TOKEN. See docs/deploy.md.
+  routewatch-tunnel:
+    image: cloudflare/cloudflared:2026.11.2
+    profiles: [tunnel]
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${ROUTEWATCH_TUNNEL_TOKEN:-}
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+    networks: [routewatch]
+    depends_on:
+      routewatch-ui:
+        condition: service_healthy

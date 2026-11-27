@@ -47,12 +47,17 @@ take_lock() {
 # KEY=value lines only; the files are never sourced.
 value_of() { sed -n "s/^$2=//p" "$1" | tail -n 1; }
 
+# The Cloudflare tunnel runs when .env holds its token (docs/deploy.md).
+tunnel_enabled() { [[ -n "$(value_of "$ENV_FILE" ROUTEWATCH_TUNNEL_TOKEN)" ]]; }
+
 compose() {
   local dir="$1"
+  local -a profiles=()
   shift
+  if tunnel_enabled; then profiles=(--profile tunnel); fi
   ROUTEWATCH_IMAGE="$(value_of "$dir/release.env" ROUTEWATCH_IMAGE)" \
     docker compose --project-name "$PROJECT" --project-directory "$ROOT" \
-    --env-file "$ENV_FILE" \
+    --env-file "$ENV_FILE" "${profiles[@]}" \
     -f "$dir/compose.routewatch.yaml" -f "$dir/compose.app.yaml" "$@"
 }
 
@@ -85,7 +90,9 @@ show_state() {
 check_stable() {
   local dir="$1" service id status count
   local -A restarts=()
-  for service in "${SERVICES[@]}"; do
+  local -a services=("${SERVICES[@]}")
+  if tunnel_enabled; then services+=(routewatch-tunnel); fi
+  for service in "${services[@]}"; do
     id="$(compose "$dir" ps -a -q "$service")"
     [[ -n $id ]] || {
       say "check: $service has no container"
@@ -94,7 +101,7 @@ check_stable() {
     restarts[$service]="$(docker inspect -f '{{.RestartCount}}' "$id")"
   done
   sleep "$SETTLE_SECONDS"
-  for service in "${SERVICES[@]}"; do
+  for service in "${services[@]}"; do
     id="$(compose "$dir" ps -a -q "$service")"
     read -r status count < <(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$id")
     if [[ $status != running || $count != "${restarts[$service]}" ]]; then
