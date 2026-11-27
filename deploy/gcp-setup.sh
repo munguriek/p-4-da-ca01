@@ -102,10 +102,12 @@ exists gcloud iam workload-identity-pools providers describe "$PROVIDER" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref,attribute.environment=assertion.environment" \
     --attribute-condition="assertion.repository_id == '$REPO_ID' && assertion.repository_owner_id == '$OWNER_ID' && assertion.ref == 'refs/heads/main' && assertion.environment == 'production'"
-# Only the production environment's jobs may act as the deployer.
+# Tokens the provider accepts (this repository, main, production) may act as
+# the deployer. The binding matches the repository's ID, not the token's
+# subject, whose format differs for repositories created after 15 July 2026.
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --role=roles/iam.workloadIdentityUser --format=none \
-  --member="principal://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/subject/repo:$REPOSITORY:environment:production"
+  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/attribute.repository_id/$REPO_ID"
 
 cat <<EOF
 

@@ -10,7 +10,7 @@ push to main, also   ──► publish ghcr.io/munguriek/routewatch@sha256:… �
                      ──► on the VM: release.sh deploy ──► checks ──► keep, or roll back
 ```
 
-On the VM (e2-standard-2, Ubuntu 26.04 LTS) the project `routewatch` runs Kafka and PostgreSQL from `compose.routewatch.yaml`, and from `compose.app.yaml` two one-off jobs (topic, then raw table and UI role) and four services: collector, raw consumer, cleaner and web UI. The UI listens on the VM's loopback only. Nothing listens on the internet: the only inbound rule is SSH from Identity-Aware Proxy (IAP).
+On the VM (e2-standard-2, Ubuntu 26.04 LTS) the project `routewatch` runs Kafka and PostgreSQL from `compose.routewatch.yaml`, and from `compose.app.yaml` two one-off jobs (topic, then raw table and UI role) and four services: collector, raw consumer, cleaner and web UI. The UI listens on the VM's loopback only. Nothing listens on the internet: the only inbound rule is SSH from Identity-Aware Proxy (IAP). Publishing the UI at a domain through Cloudflare (below) keeps it that way.
 
 ## One-time setup
 
@@ -49,6 +49,24 @@ To open the web UI from your laptop, keep this running and browse to http://loca
 gcloud compute ssh routewatch-vm --zone=europe-west1-b --tunnel-through-iap -- -N -L 8765:127.0.0.1:8765
 ```
 
+## Publishing the UI at a domain
+
+The UI can be served at a hostname on a domain managed by Cloudflare, such as `demo.kukwiri.com`, through a Cloudflare Tunnel: the `routewatch-tunnel` container connects out to Cloudflare, so the VM opens no port, and Cloudflare provides HTTPS. Cloudflare Access decides who may open it; keep it to named people while the RIS data must stay private.
+
+1. **Deploy a release that includes `routewatch-tunnel`.** Without a token it stays off.
+2. **Create the tunnel.** In the Cloudflare dashboard, go to Networking → Tunnels → Create Tunnel, name it `routewatch`, and copy the token from the install command shown (the long string after `--token`). Do not run that command: the VM runs cloudflared in Docker.
+3. **Route the hostname.** On the tunnel's Routes tab, choose Add route → Published application: subdomain `demo`, domain `kukwiri.com`, service URL `http://routewatch-ui:8765`. Leave the HTTP Host Header setting empty.
+4. **Protect it with Access before the tunnel runs.** In Cloudflare One, go to Access controls → Applications → Add an application → Self-hosted. Add the public hostname `demo.kukwiri.com` and a policy with the action Allow that includes the email addresses of the people who may see it. Make sure One-time PIN is a login method (Integrations → Identity providers). Access denies everyone else.
+5. **Give the VM the settings.** Run `sudo nano /opt/routewatch/.env` and add two lines (the token is a secret, so do not echo it into the shell):
+   ```
+   ROUTEWATCH_UI_PUBLIC_HOST=demo.kukwiri.com
+   ROUTEWATCH_TUNNEL_TOKEN=<the token>
+   ```
+6. **Start it** with `sudo routewatch compose up -d --wait`. From now on every deploy runs the tunnel and checks that it stays up.
+7. **Test** in a private browser window: https://demo.kukwiri.com asks for an email address, sends a code, then shows the explainer.
+
+To take the site offline, disable the route in Cloudflare, or run `sudo routewatch compose stop routewatch-tunnel`; deploys start the tunnel again while the token is in `.env`. To switch it off for good, delete the `ROUTEWATCH_TUNNEL_TOKEN` line from `.env`, then run `sudo routewatch compose rm -sf routewatch-tunnel`.
+
 ## Disk
 
 The raw and clean tables grow for as long as the collector runs. The local stack measured about 454 messages a second from rrc21, about 2.8 kB each once stored and cleaned: about 4.6 GB an hour, so the 200 GB disk holds about a day and a half of the feed. RIS traffic varies, so check the rate in the first hours: run `sudo routewatch status` twice, an hour apart. Every five minutes a systemd timer runs `routewatch disk-guard`, which stops the collector once the disk is 85% full (the consumer and cleaner carry on and drain Kafka) and writes a line to `deploy.log`. A deploy starts the collector again, and the guard stops it again within five minutes.
@@ -64,6 +82,7 @@ To make room, grow the disk; this keeps the data. Run `gcloud compute disks resi
 - No key is stored anywhere. The deploy job exchanges GitHub's OIDC token for a short-lived token; the provider accepts only this repository (by ID), on `main`, in the `production` environment, and only that environment's jobs may act as the deployer.
 - The deployer may view the project's VMs, open IAP tunnels, and log in with sudo to this VM only. SSH keys it registers expire after 30 minutes.
 - Port 22 accepts IAP's range only (35.235.240.0/20); OS Login controls who may log in. The VM has no service account, so its containers can obtain no Google credentials.
+- If the UI is published through Cloudflare, the tunnel connects outwards and Cloudflare Access allows only the email addresses in its policy; the UI also refuses any Host name but `localhost:8765` and `ROUTEWATCH_UI_PUBLIC_HOST`.
 - The image is public. Its build context is an allow-list (`.dockerignore`), and CI fails if `/app` holds anything but the code, or a `.env`, `data` or notebook file. The secrets exist only in `/opt/routewatch/.env` on the VM, and in a throwaway `.env` inside each CI run.
 - The services run as an unprivileged user with a read-only root file system and no Linux capabilities. The UI connects as the read-only role and never receives the owner's password.
 
