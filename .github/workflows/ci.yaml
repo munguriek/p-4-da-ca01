@@ -1,16 +1,29 @@
 name: CI
 
+# Every push and pull request: lint and unit tests, then integration tests,
+# then the image built and checked end to end. A push to main also publishes
+# the image to GitHub Container Registry and, once approved in the production
+# environment, deploys it to the VM. See docs/deploy.md.
+
 on:
   push:
   pull_request:
     branches: [main]
-  
+
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash # with -o pipefail, so a failing command in a pipe fails the step
+
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Newer runs replace older ones, except on main, where every commit runs.
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  IMAGE_NAME: ghcr.io/munguriek/routewatch
 
 jobs:
   lint-and-unit:
@@ -27,7 +40,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      
+
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
         with:
@@ -39,16 +52,16 @@ jobs:
         run: |
           python -m pip install pip==26.3
           python -m pip install -e ".[dev]"
-      
+
       - name: Lint
         run: ruff check .
 
-      - name: Check formating
+      - name: Check formatting
         run: ruff format --check .
 
-      - name: Run unit tests 
+      - name: Run unit tests
         run: pytest -m "not integration"
-  
+
   integration:
     name: Integration tests (Kafka and PostgreSQL)
     needs: lint-and-unit
@@ -76,18 +89,7 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Write a CI-only .env
-        run: |
-          {
-            echo "ROUTEWATCH_KAFKA_CLUSTER_ID=$(docker run --rm apache/kafka:4.4.0 /opt/kafka/bin/kafka-storage.sh random-uuid)"
-            echo "ROUTEWATCH_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:39092"
-            echo "ROUTEWATCH_KAFKA_TOPIC=routewatch.ris.raw"
-            echo "ROUTEWATCH_KAFKA_GROUP_ID=routewatch.raw.v1"
-            echo "ROUTEWATCH_POSTGRES_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
-            echo "ROUTEWATCH_POSTGRES_HOST=127.0.0.1"
-            echo "ROUTEWATCH_POSTGRES_PORT=5434"
-            echo "ROUTEWATCH_POSTGRES_DB=routewatch"
-            echo "ROUTEWATCH_POSTGRES_USER=routewatch"
-          } > .env
+        run: bash deploy/new-env.sh .env
 
       - name: Start Kafka and PostgreSQL
         run: docker compose -f compose.routewatch.yaml up -d --wait
@@ -107,3 +109,178 @@ jobs:
       - name: Remove the stack and its volumes
         if: always()
         run: docker compose -f compose.routewatch.yaml down -v
+
+  image:
+    name: Image, checked end to end
+    needs: integration # so that nothing is published from a commit that failed a test
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write # used only by the publish steps, on main
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
+    env:
+      # Both compose files, so plain "docker compose" runs the whole stack.
+      COMPOSE_FILE: compose.routewatch.yaml:compose.app.yaml
+      ROUTEWATCH_IMAGE: routewatch:ci
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: routewatch:ci
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Check the image holds only the application
+        run: |
+          contents="$(docker run --rm -e LC_ALL=C routewatch:ci ls -A /app | tr '\n' ' ')"
+          echo "/app holds: $contents"
+          test "$contents" = "LICENSE README.md pyproject.toml scripts src ui "
+          test -z "$(docker run --rm routewatch:ci find /app -name '.env*' -o -name 'data' -o -name '*.ipynb')"
+          test "$(docker run --rm routewatch:ci id -u)" = "10001"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the package for the smoke test
+        run: |
+          python -m pip install pip==26.3
+          python -m pip install .
+
+      - name: Write a CI-only .env
+        run: |
+          bash deploy/new-env.sh .env
+          # The same keys as .env.example, so the two cannot drift apart.
+          diff <(grep -oE '^[A-Z_]+=' .env.example | sort) <(grep -oE '^[A-Z_]+=' .env | sort)
+
+      - name: Start the stack without the collector
+        run: docker compose up -d --wait --wait-timeout 240 routewatch-consumer routewatch-cleaner routewatch-ui
+
+      - name: Publish synthetic updates and check them through the UI
+        run: python scripts/smoke_routewatch_stack.py --allow-synthetic-writes
+
+      - name: Check the collector starts
+        run: docker compose run --rm --no-deps routewatch-collector python scripts/collect_routewatch.py --help
+
+      - name: Show the service logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Remove the stack and its volumes
+        if: always()
+        run: docker compose down -v
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the image that passed
+        id: publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          for tag in "sha-$GITHUB_SHA" main; do
+            docker tag routewatch:ci "$IMAGE_NAME:$tag"
+            docker push --quiet "$IMAGE_NAME:$tag"
+          done
+          digest="$(docker buildx imagetools inspect "$IMAGE_NAME:sha-$GITHUB_SHA" \
+            --format '{{json .Manifest}}' | jq -r .digest)"
+          [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "image=$IMAGE_NAME@$digest" >> "$GITHUB_OUTPUT"
+          echo "Published \`$IMAGE_NAME@$digest\` (sha-$GITHUB_SHA, main)" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to the VM
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    environment: production # waits for approval
+    permissions:
+      contents: read
+      id-token: write # for Workload Identity Federation
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      IMAGE: ${{ needs.image.outputs.image }}
+      CLOUDSDK_CORE_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      ZONE: ${{ vars.GCP_ZONE }}
+      VM: ${{ vars.GCP_VM_NAME }}
+
+    steps:
+      - name: Check the deployment settings
+        run: |
+          for name in GCP_PROJECT_ID GCP_ZONE GCP_VM_NAME GCP_WORKLOAD_IDENTITY_PROVIDER GCP_DEPLOY_SERVICE_ACCOUNT; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Repository variable $name is not set; see docs/deploy.md"
+              exit 1
+            fi
+          done
+          if [[ $IMAGE != "$IMAGE_NAME@sha256:"* ]]; then
+            echo "::error::The image job published no digest-pinned image"
+            exit 1
+          fi
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_VM_NAME: ${{ vars.GCP_VM_NAME }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up the gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          version: "570.0.0"
+
+      - name: Copy the release to the VM
+        run: |
+          bundle="routewatch-$GITHUB_SHA-$GITHUB_RUN_ATTEMPT"
+          mkdir "$bundle"
+          cp compose.routewatch.yaml compose.app.yaml deploy/release.sh "$bundle/"
+          {
+            echo "ROUTEWATCH_RELEASE=$GITHUB_SHA"
+            echo "ROUTEWATCH_IMAGE=$IMAGE"
+            echo "ROUTEWATCH_RUN=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$bundle/release.env"
+          echo "BUNDLE=$bundle" >> "$GITHUB_ENV"
+          gcloud compute scp --recurse "$bundle" "$VM:" --zone="$ZONE" \
+            --tunnel-through-iap --ssh-key-expire-after=30m --quiet
+
+      - name: Deploy, check, and roll back if the checks fail
+        run: |
+          gcloud compute ssh "$VM" --zone="$ZONE" --tunnel-through-iap \
+            --ssh-key-expire-after=30m --quiet \
+            --command="sudo bash $BUNDLE/release.sh deploy $BUNDLE; status=\$?; rm -rf -- $BUNDLE; exit \$status"
+          echo "Deployed \`$IMAGE\` to $VM" >> "$GITHUB_STEP_SUMMARY"

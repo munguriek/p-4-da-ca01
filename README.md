@@ -52,6 +52,17 @@ python scripts/serve_routewatch_ui.py       # then open http://127.0.0.1:8765/
 
 The UI connects to PostgreSQL as its own role, which can only read, and it listens on 127.0.0.1. On a server, reach it through an SSH tunnel rather than opening the port.
 
+## Containers and deployment
+
+One image runs every service; `compose.app.yaml` adds the collector, raw consumer, cleaner and UI, and two one-off jobs that create the topic, the raw table and the UI's role, to the Kafka and PostgreSQL in `compose.routewatch.yaml`. To run it all in containers instead of the scripts above (not both at once):
+
+```sh
+docker build -t routewatch:local .
+docker compose -f compose.routewatch.yaml -f compose.app.yaml up -d --wait
+```
+
+Every push runs CI, including the image checked end to end with synthetic messages. A merge into `main` publishes the image and, after approval, deploys it to a Google Cloud VM, where it is checked against live data and rolled back if the checks fail. [docs/deploy.md](docs/deploy.md) covers the setup and day-to-day operation.
+
 ## Tests
 
 ```sh
