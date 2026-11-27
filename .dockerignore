@@ -1,0 +1,15 @@
+# The image is public, so the build context is an allow-list: only what the
+# Dockerfile copies goes in. .env, data/, logs/ and everything else stay out.
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!src/
+!scripts/
+!ui/
+
+# Clutter inside the allowed folders.
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+**/.DS_Store

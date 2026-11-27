@@ -1,0 +1,155 @@
+# routewatch's services in containers, layered on compose.routewatch.yaml:
+#   docker build -t routewatch:local .
+#   docker compose -f compose.routewatch.yaml -f compose.app.yaml up -d --wait
+# One image runs every Python service; ROUTEWATCH_IMAGE names it (the VM and CI
+# set it). Values come from .env, except the hosts and ports below: inside the
+# Compose network the services reach Kafka and PostgreSQL by service name.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-app: &app
+  image: ${ROUTEWATCH_IMAGE:-routewatch:local}
+  restart: unless-stopped
+  stop_signal: SIGINT # the scripts finish cleanly on Ctrl-C (KeyboardInterrupt)
+  stop_grace_period: 30s
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging: *logging
+  networks: [routewatch]
+
+x-kafka-env: &kafka-env
+  ROUTEWATCH_KAFKA_BOOTSTRAP_SERVERS: routewatch-kafka:9092
+  ROUTEWATCH_KAFKA_TOPIC: ${ROUTEWATCH_KAFKA_TOPIC:?set ROUTEWATCH_KAFKA_TOPIC in .env}
+
+x-postgres-env: &postgres-env
+  ROUTEWATCH_POSTGRES_HOST: routewatch-db
+  ROUTEWATCH_POSTGRES_PORT: "5432"
+  ROUTEWATCH_POSTGRES_DB: ${ROUTEWATCH_POSTGRES_DB:?set ROUTEWATCH_POSTGRES_DB in .env}
+  ROUTEWATCH_POSTGRES_USER: ${ROUTEWATCH_POSTGRES_USER:?set ROUTEWATCH_POSTGRES_USER in .env}
+  ROUTEWATCH_POSTGRES_PASSWORD: ${ROUTEWATCH_POSTGRES_PASSWORD:?set ROUTEWATCH_POSTGRES_PASSWORD in .env}
+
+services:
+  routewatch-kafka:
+    restart: unless-stopped
+    logging: *logging
+
+  routewatch-db:
+    restart: unless-stopped
+    logging: *logging
+
+  # One-off: creates the topic if it is missing. The settings match
+  # scripts/create_routewatch_topics.sh; change both together.
+  routewatch-topics:
+    image: apache/kafka:4.4.0
+    restart: "no"
+    command:
+      - /opt/kafka/bin/kafka-topics.sh
+      - --bootstrap-server
+      - routewatch-kafka:9092
+      - --create
+      - --if-not-exists
+      - --topic
+      - ${ROUTEWATCH_KAFKA_TOPIC:?set ROUTEWATCH_KAFKA_TOPIC in .env}
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+      - --config
+      - cleanup.policy=delete
+      - --config
+      - retention.ms=172800000
+      - --config
+      - retention.bytes=2147483648
+      - --config
+      - segment.bytes=67108864
+      - --config
+      - segment.ms=3600000
+      - --config
+      - max.message.bytes=8388608
+    environment:
+      KAFKA_HEAP_OPTS: -Xmx256m
+    depends_on:
+      routewatch-kafka:
+        condition: service_healthy
+    logging: *logging
+    networks: [routewatch]
+
+  # One-off: the raw table and the UI's read-only role. Both scripts are safe to rerun.
+  routewatch-migrate:
+    <<: *app
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - python scripts/init_routewatch_db.py && python scripts/init_routewatch_ui_role.py
+    environment:
+      <<: *postgres-env
+      ROUTEWATCH_UI_POSTGRES_USER: ${ROUTEWATCH_UI_POSTGRES_USER:-routewatch_ui}
+      ROUTEWATCH_UI_POSTGRES_PASSWORD: ${ROUTEWATCH_UI_POSTGRES_PASSWORD:?set ROUTEWATCH_UI_POSTGRES_PASSWORD in .env}
+    depends_on:
+      routewatch-db:
+        condition: service_healthy
+
+  # Docker keeps the log stream (see x-logging), so the collector's own file goes nowhere.
+  routewatch-collector:
+    <<: *app
+    command: [python, scripts/collect_routewatch.py, --log-file, /dev/null]
+    environment:
+      <<: *kafka-env
+    depends_on:
+      routewatch-topics:
+        condition: service_completed_successfully
+
+  routewatch-consumer:
+    <<: *app
+    command: [python, scripts/consume_routewatch_raw.py]
+    environment:
+      <<: [*kafka-env, *postgres-env]
+      ROUTEWATCH_KAFKA_GROUP_ID: ${ROUTEWATCH_KAFKA_GROUP_ID:?set ROUTEWATCH_KAFKA_GROUP_ID in .env}
+    depends_on:
+      routewatch-topics:
+        condition: service_completed_successfully
+      routewatch-migrate:
+        condition: service_completed_successfully
+
+  routewatch-cleaner:
+    <<: *app
+    command: [python, scripts/clean_routewatch.py, --follow]
+    environment:
+      <<: [*kafka-env, *postgres-env]
+    depends_on:
+      routewatch-migrate:
+        condition: service_completed_successfully
+
+  # Published on the host's loopback only: reach it through an SSH tunnel.
+  routewatch-ui:
+    <<: *app
+    command: [python, scripts/serve_routewatch_ui.py, --host, 0.0.0.0, --allow-non-loopback]
+    ports: ["127.0.0.1:8765:8765"]
+    environment:
+      <<: [*kafka-env, *postgres-env]
+      # The UI connects as its read-only role. Its settings loader still asks for
+      # the owner's password, then replaces it, so the real one stays out of here.
+      ROUTEWATCH_POSTGRES_PASSWORD: unused-by-the-ui
+      ROUTEWATCH_KAFKA_GROUP_ID: ${ROUTEWATCH_KAFKA_GROUP_ID:?set ROUTEWATCH_KAFKA_GROUP_ID in .env}
+      ROUTEWATCH_UI_POSTGRES_USER: ${ROUTEWATCH_UI_POSTGRES_USER:-routewatch_ui}
+      ROUTEWATCH_UI_POSTGRES_PASSWORD: ${ROUTEWATCH_UI_POSTGRES_PASSWORD:?set ROUTEWATCH_UI_POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/favicon.svg', timeout=4)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      routewatch-migrate:
+        condition: service_completed_successfully
